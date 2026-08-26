@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { CalendarDays, Home, Settings, StickyNote, Users } from "lucide-react";
 import type { BoardItem, Event, FamilyMember } from "../../src/core/models";
 import { modules } from "../../src/core/modules";
 
@@ -22,7 +23,7 @@ function Avatar({ person, small = false }: { person: FamilyMember; small?: boole
 }
 
 function Header({ onSettings }: { onSettings: () => void }) {
-  return <header className="topbar"><button className="brand plain-button" onClick={() => location.assign("/")} aria-label="Ground Control home"><span className="brand-mark">GC</span><span>Ground Control</span></button><button className="profile" onClick={onSettings} aria-label="Open settings">SC</button></header>;
+  return <header className="topbar"><button className="brand plain-button" onClick={() => location.assign("/")} aria-label="Ground Control home"><span className="brand-mark"><i /><b /></span><span>Ground Control</span></button><button className="profile" onClick={onSettings} aria-label="Open settings"><Settings size={19} strokeWidth={2} /></button></header>;
 }
 
 function SectionHeading({ eyebrow, title, action, onAction }: { eyebrow:string; title:string; action?:string; onAction?:()=>void }) {
@@ -79,8 +80,8 @@ function SettingsView({ close }:{close:()=>void}) {
 }
 
 function BottomNav({ view, setView }:{view:View; setView:(view:View)=>void}) {
-  const items:{id:View;label:string;icon:string}[] = [{id:"home",label:"Home",icon:"⌂"},{id:"week",label:"Week",icon:"▦"},{id:"board",label:"Board",icon:"□"},{id:"family",label:"Family",icon:"○"}];
-  return <nav className="bottom-nav" aria-label="Primary navigation">{items.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><span>{item.icon}</span>{item.label}</button>)}</nav>;
+  const items = [{id:"home" as View,label:"Home",Icon:Home},{id:"week" as View,label:"Week",Icon:CalendarDays},{id:"board" as View,label:"Board",Icon:StickyNote},{id:"family" as View,label:"Family",Icon:Users}];
+  return <nav className="bottom-nav" aria-label="Primary navigation">{items.map(({id,label,Icon}) => <button key={id} className={view === id ? "active" : ""} onClick={() => setView(id)}><Icon size={20} strokeWidth={view === id ? 2.5 : 1.8}/><span>{label}</span></button>)}</nav>;
 }
 
 export function GroundControlApp({ family, events, initialBoard }:Props) {
