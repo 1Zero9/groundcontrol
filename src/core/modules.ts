@@ -1,12 +1,20 @@
 import type { GroundControlModule } from "./models";
+import { moduleRegistry } from "./module-registry";
 
-export const modules: GroundControlModule[] = [
-  { id: "planner", name: "Planner", description: "Shared events and weekly plans", enabled: true, status: "installed" },
-  { id: "board", name: "Board", description: "Quick notes, reminders and countdowns", enabled: true, status: "installed" },
-  { id: "sports", name: "Sports", description: "Fixtures, training and team schedules", enabled: false, status: "coming-soon" },
-  { id: "clubzap", name: "ClubZap Connector", description: "Bring club events into your planner", enabled: false, status: "coming-soon" },
-  { id: "ddsl", name: "DDSL Connector", description: "Sync league fixtures", enabled: false, status: "coming-soon" },
-  { id: "school", name: "School", description: "Term dates, forms and activities", enabled: false, status: "coming-soon" },
-  { id: "shopping", name: "Shopping", description: "A shared household list", enabled: false, status: "coming-soon" },
-  { id: "chores", name: "Chores", description: "Keep everyday jobs moving", enabled: false, status: "coming-soon" },
-];
+// Derived from the module-registry (the source of truth for what a module
+// actually contributes). This list is just the display-friendly shape used
+// by settings/profile UI to show what's installed vs. available per family.
+// Actual per-family enable/disable state lives in the `family_modules` table
+// once a family is loaded from the database.
+export const modules: GroundControlModule[] = moduleRegistry.map((m) => ({
+  id: m.key,
+  name: m.name,
+  description: m.description,
+  enabled: m.isCore,
+  status: m.isCore ? "installed" : "available",
+  icon: m.icon,
+}));
+
+// Connectors (ClubZap, DDSL, generic iCal) feed events into modules — mainly
+// "sports" and "school" — via src/core/connectors.ts. They're not modules
+// themselves, just data sources a module can sync from.

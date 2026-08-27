@@ -1,5 +1,12 @@
+export type Family = {
+  id: string;
+  name: string;
+  timezone: string;
+};
+
 export type FamilyMember = {
   id: string;
+  familyId?: string;
   name: string;
   shortName?: string;
   colour: string;
@@ -9,6 +16,10 @@ export type FamilyMember = {
   title?: string;
 };
 
+// Core categories always available (from the "planner" module). Modules can
+// introduce further categories (e.g. "sports.match", "school.trip") — see
+// src/core/module-registry.ts. Kept as `string` at the type level so the UI
+// doesn't need to know about every module's categories ahead of time.
 export type EventCategory =
   | "sports"
   | "school"
@@ -20,10 +31,14 @@ export type EventCategory =
   | "medicine"
   | "shopping"
   | "work"
-  | "general";
+  | "general"
+  | (string & {});
 
 export type Event = {
   id: string;
+  familyId?: string;
+  /** Which module (sports/school/life/...) produced this event, if any. */
+  moduleKey?: string;
   title: string;
   description?: string;
   start: string;
@@ -37,10 +52,14 @@ export type Event = {
   source?: string;
   sourceId?: string;
   status?: "active" | "cancelled" | "completed";
+  /** Module-specific structured payload (e.g. sports opponent, school term). */
+  details?: Record<string, unknown>;
 };
 
 export type BoardItem = {
   id: string;
+  familyId?: string;
+  moduleKey?: string;
   text: string;
   subtitle?: string;
   type?: "note" | "task" | "reminder" | "countdown";
