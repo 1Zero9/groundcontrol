@@ -1,14 +1,14 @@
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
+import { Pool } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "./schema";
 
 let cached: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 /**
- * Returns a singleton Drizzle client backed by Neon's serverless HTTP driver
- * (works for both Vercel Postgres and plain Neon connection strings).
+ * Returns a singleton Drizzle client over a standard Postgres connection
+ * (Prisma Postgres, or any other Postgres-compatible provider).
  *
- * Set DATABASE_URL (or POSTGRES_URL) in your Vercel project / .env.local.
+ * Set DATABASE_URL (or POSTGRES_URL) in Vercel / .env.local.
  */
 export function getDb() {
   if (cached) return cached;
@@ -22,7 +22,7 @@ export function getDb() {
     );
   }
 
-  const sql = neon(connectionString);
-  cached = drizzle(sql, { schema });
+  const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false } });
+  cached = drizzle(pool, { schema });
   return cached;
 }

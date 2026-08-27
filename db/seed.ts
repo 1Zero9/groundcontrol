@@ -52,7 +52,7 @@ async function main() {
     .returning();
 
   await Promise.all(
-    Object.values(moduleByKey).map((mod) =>
+    Array.from(moduleByKey.values()).map((mod) =>
       db.insert(familyModules).values({
         familyId: family.id,
         moduleId: mod.id,
