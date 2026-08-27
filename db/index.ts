@@ -1,13 +1,13 @@
-import { env } from "cloudflare:workers";
-import { drizzle } from "drizzle-orm/d1";
-import * as schema from "./schema";
-
-export function getDb() {
-  if (!env.DB) {
-    throw new Error(
-      "Cloudflare D1 binding `DB` is unavailable. Set the `d1` field in .openai/hosting.json to `DB` or let your control plane inject the real binding values before using the database."
-    );
-  }
-
-  return drizzle(env.DB, { schema });
+// Placeholder database client. Wire this up once Vercel storage (Postgres,
+// e.g. via Neon/Vercel Postgres) is provisioned:
+//
+//   import { drizzle } from "drizzle-orm/neon-http";
+//   import * as schema from "./schema";
+//   export function getDb() {
+//     return drizzle(process.env.DATABASE_URL!, { schema });
+//   }
+export function getDb(): never {
+  throw new Error(
+    "Database not configured yet. Provision Postgres in Vercel, set DATABASE_URL, and implement getDb() in db/index.ts."
+  );
 }
