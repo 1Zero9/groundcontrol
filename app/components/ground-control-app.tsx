@@ -19,8 +19,15 @@ import { RememberBoardView } from "./remember-board-view";
 import { ProfileView } from "./profile-view";
 import { KitchenDisplayView } from "./kitchen-display-view";
 import { AddModal } from "./add-modal";
+import {
+  createBoardItemAction,
+  createEventAction,
+  removeBoardItemAction,
+  toggleBoardItemAction,
+} from "../actions";
 
 interface GroundControlAppProps {
+  familyId: string;
   family: FamilyMember[];
   events: Event[];
   initialBoard: BoardItem[];
@@ -30,6 +37,7 @@ type TabView = "today" | "week" | "remember" | "profile";
 type DisplayMode = "mobile" | "kitchen" | "responsive";
 
 export function GroundControlApp({
+  familyId,
   family,
   events: initialEvents,
   initialBoard,
@@ -37,7 +45,7 @@ export function GroundControlApp({
   const [activeTab, setActiveTab] = useState<TabView>("today");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("mobile");
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState("finn");
+  const [currentUserId, setCurrentUserId] = useState(family[0]?.id ?? "");
   const [events, setEvents] = useState<Event[]>(initialEvents);
   const [board, setBoard] = useState<BoardItem[]>(initialBoard);
   const [isAddOpen, setIsAddOpen] = useState(false);
@@ -52,24 +60,74 @@ export function GroundControlApp({
   const currentUser =
     family.find((m) => m.id === currentUserId) || family[0];
 
-  const handleSaveEvent = (newEvent: Event) => {
-    setEvents([newEvent, ...events]);
+  const handleSaveEvent = async (draft: Event) => {
+    const optimisticId = draft.id;
+    setEvents((prev) => [draft, ...prev]);
+    try {
+      const saved = await createEventAction({
+        familyId,
+        title: draft.title,
+        description: draft.description,
+        start: draft.start,
+        end: draft.end,
+        allDay: draft.allDay,
+        personIds: draft.personIds,
+        category: draft.category,
+        location: draft.location,
+        icon: draft.icon,
+        accentColor: draft.accentColor,
+        source: draft.source,
+      });
+      setEvents((prev) => prev.map((e) => (e.id === optimisticId ? saved : e)));
+    } catch (err) {
+      console.error("Failed to save event", err);
+      setEvents((prev) => prev.filter((e) => e.id !== optimisticId));
+    }
   };
 
-  const handleSaveBoardItem = (newItem: BoardItem) => {
-    setBoard([newItem, ...board]);
+  const handleSaveBoardItem = async (draft: BoardItem) => {
+    const optimisticId = draft.id;
+    setBoard((prev) => [draft, ...prev]);
+    try {
+      const saved = await createBoardItemAction({
+        familyId,
+        text: draft.text,
+        type: draft.type,
+        personIds: draft.personIds,
+        pinned: draft.pinned,
+        badge: draft.badge,
+        color: draft.color,
+      });
+      setBoard((prev) => prev.map((b) => (b.id === optimisticId ? saved : b)));
+    } catch (err) {
+      console.error("Failed to save board item", err);
+      setBoard((prev) => prev.filter((b) => b.id !== optimisticId));
+    }
   };
 
-  const handleRemoveBoardItem = (id: string) => {
-    setBoard(board.filter((b) => b.id !== id));
+  const handleRemoveBoardItem = async (id: string) => {
+    const previous = board;
+    setBoard((prev) => prev.filter((b) => b.id !== id));
+    try {
+      await removeBoardItemAction(id);
+    } catch (err) {
+      console.error("Failed to remove board item", err);
+      setBoard(previous);
+    }
   };
 
-  const handleToggleBoardItem = (id: string) => {
-    setBoard(
-      board.map((b) =>
-        b.id === id ? { ...b, completed: !b.completed } : b
-      )
+  const handleToggleBoardItem = async (id: string) => {
+    setBoard((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, completed: !b.completed } : b))
     );
+    try {
+      await toggleBoardItemAction(id);
+    } catch (err) {
+      console.error("Failed to toggle board item", err);
+      setBoard((prev) =>
+        prev.map((b) => (b.id === id ? { ...b, completed: !b.completed } : b))
+      );
+    }
   };
 
   return (
@@ -146,17 +204,6 @@ export function GroundControlApp({
       ) : (
         <div className={`layout-wrapper ${displayMode === "mobile" ? "mobile-frame-mode" : "responsive-mode"}`}>
           <div className="iphone-device-shell">
-            {/* iPhone Notch / Dynamic Island */}
-            <div className="iphone-status-bar">
-              <span className="status-time">9:41</span>
-              <div className="dynamic-island" />
-              <div className="status-icons">
-                <span className="signal-icon">●●●●</span>
-                <span className="wifi-icon">📶</span>
-                <span className="battery-icon">🔋</span>
-              </div>
-            </div>
-
             {/* Mobile App Header */}
             <header className="mobile-app-header">
               <button
@@ -273,9 +320,6 @@ export function GroundControlApp({
                 <span className="dock-label">Profile</span>
               </button>
             </nav>
-
-            {/* iPhone Home Indicator Bar */}
-            <div className="iphone-home-indicator" />
           </div>
         </div>
       )}

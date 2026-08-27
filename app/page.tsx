@@ -1,6 +1,16 @@
 import { GroundControlApp } from "./components/ground-control-app";
-import { events, familyMembers, initialBoardItems } from "../src/data/mock-data";
+import { getDefaultFamilyId, getFamilyBundle } from "../db/queries";
 
-export default function Home() {
-  return <GroundControlApp family={familyMembers} events={events} initialBoard={initialBoardItems} />;
+export default async function Home() {
+  const familyId = await getDefaultFamilyId();
+  const { members, events, boardItems } = await getFamilyBundle(familyId);
+
+  return (
+    <GroundControlApp
+      familyId={familyId}
+      family={members}
+      events={events}
+      initialBoard={boardItems}
+    />
+  );
 }
