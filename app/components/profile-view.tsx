@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
-import { Check, ShieldCheck, Heart, User, Sparkles } from "lucide-react";
+import { Check, ShieldCheck, User, Sparkles, LogOut } from "lucide-react";
 import type { FamilyMember, Event, BoardItem } from "../../src/core/models";
+import { logoutAction } from "../../lib/auth/actions";
 
 interface ProfileViewProps {
   family: FamilyMember[];
@@ -141,6 +142,14 @@ export function ProfileView({
           </div>
         </div>
       </section>
+
+      {/* Log out */}
+      <form action={logoutAction} className="logout-form">
+        <button type="submit" className="logout-btn">
+          <LogOut size={16} />
+          Log out
+        </button>
+      </form>
     </div>
   );
 }

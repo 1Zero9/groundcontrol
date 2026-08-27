@@ -56,6 +56,23 @@ export const families = pgTable("families", {
     .defaultNow(),
 });
 
+// ---------------------------------------------------------------------------
+// Users (login accounts, one per household, linked to a family)
+// ---------------------------------------------------------------------------
+
+export const users = pgTable("users", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  familyId: uuid("family_id")
+    .notNull()
+    .references(() => families.id, { onDelete: "cascade" }),
+  email: text("email").notNull().unique(),
+  // scrypt-derived hash, format "salt:hash" (see lib/auth/password.ts).
+  passwordHash: text("password_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 export const familyMembers = pgTable("family_members", {
   id: uuid("id").defaultRandom().primaryKey(),
   familyId: uuid("family_id")
@@ -67,9 +84,9 @@ export const familyMembers = pgTable("family_members", {
   avatarEmoji: text("avatar_emoji"),
   role: memberRoleEnum("role").notNull().default("child"),
   title: text("title"),
-  // Links a family member to a real login once auth is added. Nullable so
-  // kids/pets can exist as profiles without their own account.
-  userId: text("user_id"),
+  // Marks which profile the logged-in account holder is. Nullable so
+  // kids/pets can exist as profiles without their own login.
+  userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -199,12 +216,25 @@ export const familiesRelations = relations(families, ({ many }) => ({
   modules: many(familyModules),
   events: many(events),
   boardItems: many(boardItems),
+  users: many(users),
+}));
+
+export const usersRelations = relations(users, ({ one, many }) => ({
+  family: one(families, {
+    fields: [users.familyId],
+    references: [families.id],
+  }),
+  memberProfiles: many(familyMembers),
 }));
 
 export const familyMembersRelations = relations(familyMembers, ({ one }) => ({
   family: one(families, {
     fields: [familyMembers.familyId],
     references: [families.id],
+  }),
+  user: one(users, {
+    fields: [familyMembers.userId],
+    references: [users.id],
   }),
 }));
 

@@ -5,14 +5,19 @@
  *
  * Usage: npm run db:seed
  */
+import { eq } from "drizzle-orm";
 import { getDb } from "./index";
-import { boardItems, events, familyMembers, familyModules, families, modules } from "./schema";
+import { boardItems, events, familyMembers, familyModules, families, modules, users } from "./schema";
 import { moduleRegistry } from "../src/core/module-registry";
+import { hashPassword } from "../lib/auth/password";
 import {
   events as mockEvents,
   familyMembers as mockFamilyMembers,
   initialBoardItems as mockBoardItems,
 } from "../src/data/mock-data";
+
+const DEMO_EMAIL = process.env.SEED_DEMO_EMAIL || "dad@example.com";
+const DEMO_PASSWORD = process.env.SEED_DEMO_PASSWORD || "groundcontrol";
 
 async function main() {
   const db = getDb();
@@ -78,6 +83,25 @@ async function main() {
     memberIdByMock.set(m.id, row.id);
   }
 
+  console.log("Seeding demo login...");
+  const [demoUser] = await db
+    .insert(users)
+    .values({
+      familyId: family.id,
+      email: DEMO_EMAIL.toLowerCase(),
+      passwordHash: hashPassword(DEMO_PASSWORD),
+    })
+    .onConflictDoNothing({ target: users.email })
+    .returning();
+
+  const dadId = memberIdByMock.get("dad");
+  if (demoUser && dadId) {
+    await db
+      .update(familyMembers)
+      .set({ userId: demoUser.id })
+      .where(eq(familyMembers.id, dadId));
+  }
+
   const plannerModuleId = moduleByKey.get("planner")?.id;
   for (const e of mockEvents) {
     await db.insert(events).values({
@@ -120,6 +144,7 @@ async function main() {
   }
 
   console.log(`Done. Family id: ${family.id}`);
+  console.log(`Demo login -> email: ${DEMO_EMAIL}  password: ${DEMO_PASSWORD}`);
 }
 
 main()
