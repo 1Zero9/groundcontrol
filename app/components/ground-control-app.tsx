@@ -12,17 +12,19 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import type { BoardItem, Event, FamilyMember } from "../../src/core/models";
+import type { BoardItem, Event, FamilyMember, GroundControlModule } from "../../src/core/models";
 import { TodayView } from "./today-view";
 import { WeekView } from "./week-view";
 import { RememberBoardView } from "./remember-board-view";
 import { ProfileView } from "./profile-view";
+import { ModulesView } from "./modules-view";
 import { KitchenDisplayView } from "./kitchen-display-view";
 import { AddModal } from "./add-modal";
 import {
   createBoardItemAction,
   createEventAction,
   removeBoardItemAction,
+  setFamilyModuleEnabledAction,
   toggleBoardItemAction,
 } from "../actions";
 
@@ -31,9 +33,10 @@ interface GroundControlAppProps {
   family: FamilyMember[];
   events: Event[];
   initialBoard: BoardItem[];
+  initialModules: GroundControlModule[];
 }
 
-type TabView = "today" | "week" | "remember" | "profile";
+type TabView = "today" | "week" | "remember" | "profile" | "modules";
 type DisplayMode = "mobile" | "kitchen" | "responsive";
 
 export function GroundControlApp({
@@ -41,6 +44,7 @@ export function GroundControlApp({
   family,
   events: initialEvents,
   initialBoard,
+  initialModules,
 }: GroundControlAppProps) {
   const [activeTab, setActiveTab] = useState<TabView>("today");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("mobile");
@@ -48,6 +52,7 @@ export function GroundControlApp({
   const [currentUserId, setCurrentUserId] = useState(family[0]?.id ?? "");
   const [events, setEvents] = useState<Event[]>(initialEvents);
   const [board, setBoard] = useState<BoardItem[]>(initialBoard);
+  const [modules, setModules] = useState<GroundControlModule[]>(initialModules);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
   // Register service worker if available
@@ -126,6 +131,20 @@ export function GroundControlApp({
       console.error("Failed to toggle board item", err);
       setBoard((prev) =>
         prev.map((b) => (b.id === id ? { ...b, completed: !b.completed } : b))
+      );
+    }
+  };
+
+  const handleToggleModule = async (moduleKey: string, enabled: boolean) => {
+    setModules((prev) =>
+      prev.map((m) => (m.key === moduleKey ? { ...m, enabled } : m))
+    );
+    try {
+      await setFamilyModuleEnabledAction(familyId, moduleKey, enabled);
+    } catch (err) {
+      console.error("Failed to toggle module", err);
+      setModules((prev) =>
+        prev.map((m) => (m.key === moduleKey ? { ...m, enabled: !enabled } : m))
       );
     }
   };
@@ -275,6 +294,15 @@ export function GroundControlApp({
                   events={events}
                   board={board}
                   onOpenAdd={() => setIsAddOpen(true)}
+                  onOpenModules={() => setActiveTab("modules")}
+                />
+              )}
+
+              {activeTab === "modules" && (
+                <ModulesView
+                  modules={modules}
+                  onToggle={handleToggleModule}
+                  onBack={() => setActiveTab("profile")}
                 />
               )}
             </main>

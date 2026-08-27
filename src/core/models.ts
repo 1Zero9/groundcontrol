@@ -77,9 +77,13 @@ export type BoardItem = {
 
 export type GroundControlModule = {
   id: string;
+  /** Stable registry key, e.g. "sports" | "school" | "life". */
+  key: string;
   name: string;
   description: string;
   enabled: boolean;
+  /** Core modules are always on and can't be disabled per family. */
+  isCore: boolean;
   status?: "installed" | "available" | "coming-soon";
   icon?: string;
 };

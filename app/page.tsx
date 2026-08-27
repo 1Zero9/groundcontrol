@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { GroundControlApp } from "./components/ground-control-app";
-import { getFamilyBundle } from "../db/queries";
+import { getFamilyBundle, getFamilyModules } from "../db/queries";
 import { getSession } from "../lib/auth/session";
 
 export default async function Home() {
@@ -9,7 +9,10 @@ export default async function Home() {
     redirect("/login");
   }
 
-  const { members, events, boardItems } = await getFamilyBundle(session.familyId);
+  const [{ members, events, boardItems }, modules] = await Promise.all([
+    getFamilyBundle(session.familyId),
+    getFamilyModules(session.familyId),
+  ]);
 
   return (
     <GroundControlApp
@@ -17,6 +20,7 @@ export default async function Home() {
       family={members}
       events={events}
       initialBoard={boardItems}
+      initialModules={modules}
     />
   );
 }

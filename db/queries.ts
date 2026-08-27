@@ -1,7 +1,8 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "./index";
-import { boardItems, events, familyMembers, families, modules } from "./schema";
-import type { BoardItem, Event, FamilyMember } from "../src/core/models";
+import { boardItems, events, familyMembers, familyModules, families, modules } from "./schema";
+import { moduleRegistry } from "../src/core/module-registry";
+import type { BoardItem, Event, FamilyMember, GroundControlModule } from "../src/core/models";
 
 type MemberRow = typeof familyMembers.$inferSelect;
 type EventRow = typeof events.$inferSelect;
@@ -218,4 +219,71 @@ export async function toggleBoardItem(id: string): Promise<BoardItem> {
 export async function removeBoardItem(id: string): Promise<void> {
   const db = getDb();
   await db.delete(boardItems).where(eq(boardItems.id, id));
+}
+
+/**
+ * Merges the code-level module registry (name/description/icon/isCore) with
+ * this family's `family_modules` rows (enabled/disabled). A module the
+ * family has never toggled simply defaults to on for core modules, off for
+ * everything else — matching what `createFamilyWithOwner` seeds for new
+ * signups.
+ */
+export async function getFamilyModules(familyId: string): Promise<GroundControlModule[]> {
+  const db = getDb();
+
+  const [moduleRows, familyModuleRows] = await Promise.all([
+    db.select().from(modules),
+    db
+      .select()
+      .from(familyModules)
+      .where(eq(familyModules.familyId, familyId)),
+  ]);
+
+  const dbModuleByKey = new Map(moduleRows.map((m) => [m.key, m]));
+  const enabledByModuleId = new Map(familyModuleRows.map((fm) => [fm.moduleId, fm.enabled]));
+
+  return moduleRegistry.map((def) => {
+    const dbModule = dbModuleByKey.get(def.key);
+    const enabled = dbModule
+      ? enabledByModuleId.get(dbModule.id) ?? def.isCore
+      : def.isCore;
+
+    return {
+      id: dbModule?.id ?? def.key,
+      key: def.key,
+      name: def.name,
+      description: def.description,
+      enabled,
+      isCore: def.isCore,
+      status: def.isCore ? "installed" : enabled ? "installed" : "available",
+      icon: def.icon,
+    };
+  });
+}
+
+export async function setFamilyModuleEnabled(
+  familyId: string,
+  moduleKey: string,
+  enabled: boolean
+): Promise<void> {
+  const moduleId = await getModuleId(moduleKey);
+  if (!moduleId) {
+    throw new Error(`Unknown module key: ${moduleKey}`);
+  }
+
+  const db = getDb();
+  const [existing] = await db
+    .select({ id: familyModules.id })
+    .from(familyModules)
+    .where(and(eq(familyModules.familyId, familyId), eq(familyModules.moduleId, moduleId)))
+    .limit(1);
+
+  if (existing) {
+    await db
+      .update(familyModules)
+      .set({ enabled })
+      .where(eq(familyModules.id, existing.id));
+  } else {
+    await db.insert(familyModules).values({ familyId, moduleId, enabled });
+  }
 }

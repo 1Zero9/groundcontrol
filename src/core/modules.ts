@@ -8,9 +8,11 @@ import { moduleRegistry } from "./module-registry";
 // once a family is loaded from the database.
 export const modules: GroundControlModule[] = moduleRegistry.map((m) => ({
   id: m.key,
+  key: m.key,
   name: m.name,
   description: m.description,
   enabled: m.isCore,
+  isCore: m.isCore,
   status: m.isCore ? "installed" : "available",
   icon: m.icon,
 }));

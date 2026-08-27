@@ -5,6 +5,7 @@ import {
   createBoardItem,
   createEvent,
   removeBoardItem,
+  setFamilyModuleEnabled,
   toggleBoardItem,
   type NewBoardItemInput,
   type NewEventInput,
@@ -30,5 +31,14 @@ export async function toggleBoardItemAction(id: string) {
 
 export async function removeBoardItemAction(id: string) {
   await removeBoardItem(id);
+  revalidatePath("/");
+}
+
+export async function setFamilyModuleEnabledAction(
+  familyId: string,
+  moduleKey: string,
+  enabled: boolean
+) {
+  await setFamilyModuleEnabled(familyId, moduleKey, enabled);
   revalidatePath("/");
 }

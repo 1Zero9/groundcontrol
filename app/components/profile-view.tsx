@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Check, ShieldCheck, User, Sparkles, LogOut } from "lucide-react";
+import { Blocks, Check, ShieldCheck, User, Sparkles, LogOut } from "lucide-react";
 import type { FamilyMember, Event, BoardItem } from "../../src/core/models";
 import { logoutAction } from "../../lib/auth/actions";
 
@@ -12,6 +12,7 @@ interface ProfileViewProps {
   events: Event[];
   board: BoardItem[];
   onOpenAdd: () => void;
+  onOpenModules: () => void;
 }
 
 export function ProfileView({
@@ -21,6 +22,7 @@ export function ProfileView({
   events,
   board,
   onOpenAdd,
+  onOpenModules,
 }: ProfileViewProps) {
   const userEvents = events.filter((e) => e.personIds.includes(currentUser.id));
   const userNotes = board.filter(
@@ -142,6 +144,18 @@ export function ProfileView({
           </div>
         </div>
       </section>
+
+      {/* Manage modules */}
+      <div className="logout-form">
+        <button
+          type="button"
+          className="manage-modules-btn"
+          onClick={onOpenModules}
+        >
+          <Blocks size={16} />
+          Manage modules
+        </button>
+      </div>
 
       {/* Log out */}
       <form action={logoutAction} className="logout-form">
