@@ -20,11 +20,16 @@ const timeOf = (event: Event) => event.allDay ? "All day" : new Intl.DateTimeFor
 const memberFor = (family: FamilyMember[], id: string) => family.find((member) => member.id === id);
 
 function Avatar({ person, small = false }: { person: FamilyMember; small?: boolean }) {
-  return <span className={`avatar ${small ? "avatar-small" : ""}`} style={{ background: `${person.colour}24`, color: person.colour }}>{person.shortName}</span>;
+  const bgStyle = {
+    background: `linear-gradient(135deg, ${person.colour}2e 0%, ${person.colour}0c 100%)`,
+    color: person.colour,
+    borderColor: person.colour
+  };
+  return <span className={`avatar ${small ? "avatar-small" : ""}`} style={bgStyle}>{person.shortName}</span>;
 }
 
 function Header({ person, onAccount }: { person:FamilyMember; onAccount: () => void }) {
-  return <header className="topbar"><button className="brand plain-button" onClick={() => location.assign("/")} aria-label="Ground Control home"><span className="brand-mark"><i /><b /></span><span>Ground Control</span></button><button className="account-button" onClick={onAccount} aria-label="Open account menu"><Avatar person={person} small/><span>{person.name}</span></button></header>;
+  return <header className="topbar"><button className="brand plain-button" onClick={() => location.assign("/")} aria-label="Ground Control home"><span className="brand-mark" aria-hidden="true">🚀</span><span>Ground Control</span></button><button className="account-button" onClick={onAccount} aria-label="Open account menu"><Avatar person={person} small/><span>{person.name}</span></button></header>;
 }
 
 function SectionHeading({ eyebrow, title, action, onAction }: { eyebrow:string; title:string; action?:string; onAction?:()=>void }) {
@@ -34,8 +39,9 @@ function SectionHeading({ eyebrow, title, action, onAction }: { eyebrow:string; 
 function BoardNote({ item, family, onRemove, large = false }: { item:BoardItem; family:FamilyMember[]; onRemove?:(id:string)=>void; large?:boolean }) {
   const assigned = item.personIds?.map((id) => memberFor(family, id)).filter(Boolean) as FamilyMember[] | undefined;
   const progress = item.progressCurrent && item.progressTotal ? `${(item.progressCurrent / item.progressTotal) * 100}%` : undefined;
+  const style = assigned?.[0]?.colour ? { "--owner-color": assigned[0].colour } as React.CSSProperties : {};
   if (item.countdownDate) return <article className={`board-card countdown-card ${large ? "large" : ""}`}><div><strong>12</strong><span>days</span></div><p>to holidays</p><span className="sun">☀</span>{onRemove && <button className="remove-note" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.text}`}>×</button>}</article>;
-  return <article className={`board-card ${item.pinned ? "pinned" : ""} ${large ? "large" : ""}`}>{item.pinned && <span className="pin-dot" aria-label="Pinned">●</span>}<p className="board-text">{item.text}</p>{progress && <div className="progress" aria-label={`${item.progressCurrent} of ${item.progressTotal}`}><i style={{ width: progress }} /></div>}{assigned?.length ? <div className="assigned">{assigned.map((person) => <Avatar person={person} small key={person.id} />)}</div> : null}{onRemove && <button className="remove-note" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.text}`}>×</button>}</article>;
+  return <article className={`board-card ${item.pinned ? "pinned" : ""} ${large ? "large" : ""}`} style={style}>{item.pinned && <span className="pin-dot" aria-label="Pinned">●</span>}<p className="board-text">{item.text}</p>{progress && <div className="progress" aria-label={`${item.progressCurrent} of ${item.progressTotal}`}><i style={{ width: progress }} /></div>}{assigned?.length ? <div className="assigned">{assigned.map((person) => <Avatar person={person} small key={person.id} />)}</div> : null}{onRemove && <button className="remove-note" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.text}`}>×</button>}</article>;
 }
 
 function AddBoard({ onAdd, onCancel }: { onAdd:(text:string)=>void; onCancel:()=>void }) {
@@ -47,7 +53,9 @@ function AddBoard({ onAdd, onCancel }: { onAdd:(text:string)=>void; onCancel:()=
 
 function EventRow({ event, family, featured=false }: { event:Event; family:FamilyMember[]; featured?:boolean }) {
   const person = memberFor(family, event.personIds[0]);
-  return <article className={featured ? "next-event" : "event-row"}><time><strong>{timeOf(event).replace(/\s(am|pm)$/i, "")}</strong>{!event.allDay && <span>{timeOf(event).match(/(am|pm)$/i)?.[0]}</span>}</time><div className="event-copy">{person && <small style={{ color:person.colour }}><span className="person-dot" style={{background:person.colour}} />{person.name.toUpperCase()}{featured ? " · NEXT UP" : ""}</small>}<h3>{event.title}</h3><p>{event.location}{event.description ? ` · ${event.description}` : ""}</p></div>{featured && <span className="arrow">→</span>}</article>;
+  const style = person?.colour ? { "--owner-color": person.colour } as React.CSSProperties : {};
+  const icon = event.category === "sports" ? "⚽" : event.category === "school" || event.category === "college" ? "🎓" : event.category === "appointment" ? "📅" : event.category === "family" ? "💛" : "🗓️";
+  return <article className={featured ? "next-event" : "event-row"} style={style}><span className="event-icon" aria-hidden="true">{icon}</span><time><strong>{timeOf(event).replace(/\s(am|pm)$/i, "")}</strong>{!event.allDay && <span>{timeOf(event).match(/(am|pm)$/i)?.[0]}</span>}</time><div className="event-copy">{person && <small style={{ color:person.colour }}><span className="person-dot" style={{background:person.colour}} />{person.name.toUpperCase()}{featured ? " · NEXT UP" : ""}</small>}<h3>{event.title}</h3><p>{event.location}{event.description ? ` · ${event.description}` : ""}</p></div>{featured && <span className="arrow">→</span>}</article>;
 }
 
 function HomeView({ family, events, board, goBoard, goWeek, selectPerson }:{ family:FamilyMember[]; events:Event[]; board:BoardItem[]; goBoard:()=>void; goWeek:()=>void; selectPerson:(id:string)=>void }) {

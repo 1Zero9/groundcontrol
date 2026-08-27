@@ -1,11 +1,11 @@
 import type { BoardItem, Event, FamilyMember } from "../core/models";
 
 export const familyMembers: FamilyMember[] = [
-  { id: "steve", name: "Steve", shortName: "S", colour: "#7988c8", role: "adult" },
-  { id: "jenny", name: "Jenny", shortName: "J", colour: "#d88fa7", role: "adult" },
-  { id: "lauren", name: "Lauren", shortName: "L", colour: "#6fac88", role: "teen" },
-  { id: "nicole", name: "Nicole", shortName: "N", colour: "#dc9b47", role: "teen" },
-  { id: "finn", name: "Finn", shortName: "F", colour: "#659dca", role: "child" },
+  { id: "steve", name: "Steve", shortName: "S", colour: "#22C1A2", role: "adult" },
+  { id: "jenny", name: "Jenny", shortName: "J", colour: "#FFB347", role: "adult" },
+  { id: "lauren", name: "Lauren", shortName: "L", colour: "#6C4DFF", role: "teen" },
+  { id: "nicole", name: "Nicole", shortName: "N", colour: "#FF5CA8", role: "teen" },
+  { id: "finn", name: "Finn", shortName: "F", colour: "#4D96FF", role: "child" },
 ];
 
 export const events: Event[] = [

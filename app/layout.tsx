@@ -1,21 +1,17 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
-  title: "Ground Control — Family life. One place.",
-  description: "A calm, shared planner and family board for everyday life.",
+  title: "Ground Control — Your family mission control.",
+  description: "Plan together, stay on track and launch every day.",
   applicationName: "Ground Control",
   manifest: "/manifest.webmanifest",
   appleWebApp: {
@@ -25,14 +21,14 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: "Ground Control",
-    description: "Family life. One place.",
+    description: "Your family mission control.",
     type: "website",
     images: [{ url: "/og.png", width: 1731, height: 909, alt: "Ground Control — Family life. One place." }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Ground Control",
-    description: "Family life. One place.",
+    description: "Your family mission control.",
     images: ["/og.png"],
   },
   icons: {
@@ -46,7 +42,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
-  themeColor: "#f3f7f7",
+  themeColor: "#2C2255",
 };
 
 export default function RootLayout({
@@ -56,9 +52,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      <body className={`${poppins.variable} antialiased`}>
         {children}
       </body>
     </html>

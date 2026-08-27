@@ -4,10 +4,10 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Ground Control",
     short_name: "Ground Control",
-    description: "Family life. One place.",
+    description: "Your family mission control.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f8f7f3",
-    theme_color: "#6d4aff",
+    background_color: "#F3F0FF",
+    theme_color: "#2C2255",
   };
 }
