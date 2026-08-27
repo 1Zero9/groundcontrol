@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarDays, Check, ClipboardCheck, Home, Plus, Settings, StickyNote, UserRound, Users, X } from "lucide-react";
+import { CalendarDays, Check, ClipboardCheck, Home, Menu, Plus, Settings, StickyNote, UserRound, Users, X } from "lucide-react";
 import type { BoardItem, Event, FamilyMember } from "../../src/core/models";
 import { modules } from "../../src/core/modules";
 
@@ -29,7 +29,7 @@ function Avatar({ person, small = false }: { person: FamilyMember; small?: boole
 }
 
 function Header({ person, onAccount }: { person:FamilyMember; onAccount: () => void }) {
-  return <header className="topbar"><button className="brand plain-button" onClick={() => location.assign("/")} aria-label="Ground Control home"><span className="brand-mark" aria-hidden="true">🚀</span><span>Ground Control</span></button><button className="account-button" onClick={onAccount} aria-label="Open account menu"><Avatar person={person} small/><span>{person.name}</span></button></header>;
+  return <header className="topbar"><button className="brand plain-button" onClick={() => location.assign("/")} aria-label="Ground Control home"><Menu className="menu-icon" size={23}/><span>Ground Control</span></button><button className="account-button" onClick={onAccount} aria-label="Open account menu"><Avatar person={person} small/><span>{person.name}</span></button></header>;
 }
 
 function SectionHeading({ eyebrow, title, action, onAction }: { eyebrow:string; title:string; action?:string; onAction?:()=>void }) {
@@ -55,7 +55,8 @@ function EventRow({ event, family, featured=false }: { event:Event; family:Famil
   const person = memberFor(family, event.personIds[0]);
   const style = person?.colour ? { "--owner-color": person.colour } as React.CSSProperties : {};
   const icon = event.category === "sports" ? "⚽" : event.category === "school" || event.category === "college" ? "🎓" : event.category === "appointment" ? "📅" : event.category === "family" ? "💛" : "🗓️";
-  return <article className={featured ? "next-event" : "event-row"} style={style}><span className="event-icon" aria-hidden="true">{icon}</span><time><strong>{timeOf(event).replace(/\s(am|pm)$/i, "")}</strong>{!event.allDay && <span>{timeOf(event).match(/(am|pm)$/i)?.[0]}</span>}</time><div className="event-copy">{person && <small style={{ color:person.colour }}><span className="person-dot" style={{background:person.colour}} />{person.name.toUpperCase()}{featured ? " · NEXT UP" : ""}</small>}<h3>{event.title}</h3><p>{event.location}{event.description ? ` · ${event.description}` : ""}</p></div>{featured && <span className="arrow">→</span>}</article>;
+  if(featured) return <article className="next-event" style={style}><i className="event-stripe"/><div className="event-copy"><h3>{event.title}</h3><p>Today · {timeOf(event)} · {event.location}</p></div><span className="event-icon" aria-hidden="true">{icon}</span><span className="arrow">›</span></article>;
+  return <article className="event-row" style={style}><span className="event-icon" aria-hidden="true">{icon}</span><time><strong>{timeOf(event).replace(/\s(am|pm)$/i, "")}</strong>{!event.allDay && <span>{timeOf(event).match(/(am|pm)$/i)?.[0]}</span>}</time><div className="event-copy">{person && <small style={{ color:person.colour }}><span className="person-dot" style={{background:person.colour}} />{person.name.toUpperCase()}</small>}<h3>{event.title}</h3><p>{event.location}{event.description ? ` · ${event.description}` : ""}</p></div></article>;
 }
 
 function HomeView({ family, events, board, goBoard, goWeek, selectPerson }:{ family:FamilyMember[]; events:Event[]; board:BoardItem[]; goBoard:()=>void; goWeek:()=>void; selectPerson:(id:string)=>void }) {
@@ -87,7 +88,7 @@ function PersonalHome({ person, family, events, board, contributions, onAdd, onW
   const mine = events.filter((event) => event.personIds.includes(person.id));
   const notes = board.filter((item) => item.personIds?.includes(person.id));
   const pending = contributions.filter((item) => item.authorId === person.id && item.status === "pending");
-  return <div className="personal-home screen"><section className="personal-greeting"><div><p className="eyebrow">WEDNESDAY · 26 AUGUST</p><h1>Hi, {person.name}.</h1><p>Here’s what you need today.</p></div><Avatar person={person}/></section><section className="personal-next"><SectionHeading eyebrow="NEXT UP" title={mine[0]?.title || "Nothing planned"}/>{mine[0] && <EventRow event={mine[0]} family={family} featured/>}<button className="full-row-action" onClick={onWeek}>See my week <span>→</span></button></section><section className="personal-reminders"><SectionHeading eyebrow="FOR YOU" title={notes.length ? "Remember this" : "You’re all clear"}/>{notes.slice(0,2).map((item) => <BoardNote key={item.id} item={item} family={family} large/>)}</section>{pending.length > 0 && <section className="pending-strip"><ClipboardCheck size={18}/><div><strong>{pending.length} update{pending.length > 1 ? "s" : ""} waiting for approval</strong><span>Your parent will add it to the family view.</span></div></section>}<button className="contribute-cta" onClick={onAdd}><Plus size={20}/><span><strong>Add an update</strong><small>Share something with the family</small></span></button></div>;
+  return <div className="personal-home screen"><section className="mission-panel"><div className="personal-greeting"><div><p className="eyebrow">WEDNESDAY · 26 AUGUST</p><h1>Hi, {person.name}!</h1><p>Here’s what you need today.</p></div><span className="planet" aria-hidden="true">🪐</span></div><section className="personal-next"><p className="card-kicker">UP NEXT</p>{mine[0] && <EventRow event={mine[0]} family={family} featured/>}</section></section><button className="week-launch" onClick={onWeek}><CalendarDays size={19}/><strong>See my week</strong><span>›</span></button><section className="personal-reminders"><p className="card-kicker">FOR YOU</p>{notes[0]&&<BoardNote item={notes[0]} family={family} large/>}{notes[1]&&<article className="task-card"><span className="task-check"><Check size={18}/></span><strong>{notes[1].text}</strong><Avatar person={person} small/></article>}</section>{pending.length > 0 && <section className="pending-strip"><ClipboardCheck size={18}/><div><strong>{pending.length} update{pending.length > 1 ? "s" : ""} waiting for approval</strong><span>Your parent will add it to the family view.</span></div></section>}<button className="contribute-cta" onClick={onAdd}><Plus size={20}/><span><strong>Add an update</strong><small>Share something with the family</small></span></button></div>;
 }
 
 function ContributeView({ person, onSubmit }:{person:FamilyMember;onSubmit:(item:Contribution)=>void}) {
