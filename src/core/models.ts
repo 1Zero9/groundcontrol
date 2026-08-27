@@ -2,10 +2,25 @@ export type FamilyMember = {
   id: string;
   name: string;
   shortName?: string;
-  colour?: string;
+  colour: string;
   avatar?: string;
-  role?: "adult" | "teen" | "child";
+  avatarEmoji?: string;
+  role: "adult" | "teen" | "child" | "pet";
+  title?: string;
 };
+
+export type EventCategory =
+  | "sports"
+  | "school"
+  | "family"
+  | "appointment"
+  | "college"
+  | "holiday"
+  | "chores"
+  | "medicine"
+  | "shopping"
+  | "work"
+  | "general";
 
 export type Event = {
   id: string;
@@ -15,17 +30,20 @@ export type Event = {
   end?: string;
   allDay?: boolean;
   personIds: string[];
-  category?: string;
-  type?: string;
+  category: EventCategory;
   location?: string;
-  source: string;
+  icon?: string;
+  accentColor?: string;
+  source?: string;
   sourceId?: string;
-  status?: "active" | "cancelled";
+  status?: "active" | "cancelled" | "completed";
 };
 
 export type BoardItem = {
   id: string;
   text: string;
+  subtitle?: string;
+  type?: "note" | "task" | "reminder" | "countdown";
   personIds?: string[];
   createdAt: string;
   expiresAt?: string;
@@ -33,6 +51,9 @@ export type BoardItem = {
   progressCurrent?: number;
   progressTotal?: number;
   pinned?: boolean;
+  completed?: boolean;
+  badge?: string;
+  color?: string;
 };
 
 export type GroundControlModule = {
@@ -41,4 +62,5 @@ export type GroundControlModule = {
   description: string;
   enabled: boolean;
   status?: "installed" | "available" | "coming-soon";
+  icon?: string;
 };
