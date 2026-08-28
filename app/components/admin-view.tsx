@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
   RefreshCw,
   Link as LinkIcon,
@@ -12,6 +12,9 @@ import {
   Plus,
   Search,
   Trash2,
+  ChevronDown,
+  ChevronRight,
+  Users,
 } from "lucide-react";
 import type { GroundControlModule } from "../../src/core/models";
 import type { AdminFamilySummary } from "../../db/admin-queries";
@@ -428,10 +431,19 @@ function AdminAddServiceForm({
   );
 }
 
-function AdminFamilyCard({ family }: { family: AdminFamilySummary }) {
+function AdminFamilyCard({
+  family,
+  isOpen,
+  onToggle,
+}: {
+  family: AdminFamilySummary;
+  isOpen: boolean;
+  onToggle: () => void;
+}) {
   const [modules, setModules] = useState(family.modules);
   const [customServices, setCustomServices] = useState(family.customServices);
   const optionalModules = modules.filter((m) => !m.isCore);
+  const enabledCount = optionalModules.filter((m) => m.enabled).length;
 
   const handleToggle = async (moduleKey: string, enabled: boolean) => {
     setModules((prev) => prev.map((m) => (m.key === moduleKey ? { ...m, enabled } : m)));
@@ -455,74 +467,106 @@ function AdminFamilyCard({ family }: { family: AdminFamilySummary }) {
   };
 
   return (
-    <div className="admin-family-card">
-      <div className="admin-family-header">
-        <div>
-          <div className="admin-family-name-row">
+    <div className={`admin-family-card ${isOpen ? "is-open" : ""}`}>
+      <button
+        type="button"
+        className="admin-family-header admin-family-header-btn"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+      >
+        <span className="admin-family-toggle-icon">
+          {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        </span>
+
+        <span className="admin-family-header-main">
+          <span className="admin-family-name-row">
             <strong className="admin-family-name">{family.name}</strong>
-            <AdminRenameForm family={family} />
-          </div>
+          </span>
           <span className="admin-family-meta">
             {family.ownerEmail ?? "no login"} · {family.memberNames.join(", ") || "no members"}
           </span>
-        </div>
-        <div className="admin-family-header-right">
+        </span>
+
+        <span className="admin-family-header-right">
           <span className="admin-family-meta">
-            Since {new Date(family.createdAt).toLocaleDateString()}
+            {enabledCount} module{enabledCount === 1 ? "" : "s"} · since{" "}
+            {new Date(family.createdAt).toLocaleDateString()}
           </span>
-          <AdminResetLoginForm family={family} />
-        </div>
-      </div>
+        </span>
+      </button>
 
-      <div className="modules-list">
-        {optionalModules.map((mod) => (
-          <div key={mod.key} className="module-card module-card-column">
-            <div className="module-card-top-row">
-              <div className="module-card-left">
-                <div className="module-card-info">
-                  <strong className="module-card-name">{mod.name}</strong>
-                  <span className="module-card-desc">{mod.description}</span>
-                </div>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={mod.enabled}
-                aria-label={`Toggle ${mod.name} for ${family.name}`}
-                className={`toggle-switch-pill ${mod.enabled ? "on" : "off"}`}
-                onClick={() => handleToggle(mod.key, !mod.enabled)}
-              >
-                <span className="toggle-switch-thumb" />
-              </button>
-            </div>
-
-            {mod.enabled && <AdminFeedRow familyId={family.id} mod={mod} />}
+      {isOpen && (
+        <div className="admin-family-body">
+          <div className="admin-family-actions-row">
+            <AdminRenameForm family={family} />
+            <AdminResetLoginForm family={family} />
           </div>
-        ))}
-      </div>
 
-      <div className="admin-custom-services-section">
-        <h3 className="admin-custom-services-title">Custom services</h3>
-        <div className="modules-list">
-          {customServices.map((service) => (
-            <AdminCustomServiceRow
-              key={service.id}
+          <div className="modules-list">
+            {optionalModules.map((mod) => (
+              <div key={mod.key} className="module-card module-card-column">
+                <div className="module-card-top-row">
+                  <div className="module-card-left">
+                    <div className="module-card-info">
+                      <strong className="module-card-name">{mod.name}</strong>
+                      <span className="module-card-desc">{mod.description}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={mod.enabled}
+                    aria-label={`Toggle ${mod.name} for ${family.name}`}
+                    className={`toggle-switch-pill ${mod.enabled ? "on" : "off"}`}
+                    onClick={() => handleToggle(mod.key, !mod.enabled)}
+                  >
+                    <span className="toggle-switch-thumb" />
+                  </button>
+                </div>
+
+                {mod.enabled && <AdminFeedRow familyId={family.id} mod={mod} />}
+              </div>
+            ))}
+          </div>
+
+          <div className="admin-custom-services-section">
+            <h3 className="admin-custom-services-title">Custom services</h3>
+            <div className="modules-list">
+              {customServices.map((service) => (
+                <AdminCustomServiceRow
+                  key={service.id}
+                  familyId={family.id}
+                  service={service}
+                  onDelete={handleDeleteService}
+                />
+              ))}
+            </div>
+            <AdminAddServiceForm
               familyId={family.id}
-              service={service}
-              onDelete={handleDeleteService}
+              onAdded={(service) => setCustomServices((prev) => [...prev, service])}
             />
-          ))}
+          </div>
         </div>
-        <AdminAddServiceForm
-          familyId={family.id}
-          onAdded={(service) => setCustomServices((prev) => [...prev, service])}
-        />
-      </div>
+      )}
     </div>
   );
 }
 
 export function AdminView({ families }: AdminViewProps) {
+  const [query, setQuery] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const filteredFamilies = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return families;
+    return families.filter(
+      (f) =>
+        f.name.toLowerCase().includes(q) ||
+        (f.ownerEmail ?? "").toLowerCase().includes(q) ||
+        f.memberNames.some((n) => n.toLowerCase().includes(q))
+    );
+  }, [families, query]);
+
   return (
     <div className="admin-page">
       <header className="admin-page-header">
@@ -543,10 +587,37 @@ export function AdminView({ families }: AdminViewProps) {
         </form>
       </header>
 
+      <div className="admin-toolbar-row">
+        <div className="admin-search-wrap">
+          <Search size={15} className="admin-search-icon" />
+          <input
+            type="text"
+            className="admin-search-input"
+            placeholder="Search by household, owner email, or member name…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <span className="admin-family-count">
+          <Users size={14} />
+          {filteredFamilies.length} of {families.length} household
+          {families.length === 1 ? "" : "s"}
+        </span>
+      </div>
+
       <div className="admin-family-list">
-        {families.map((family) => (
-          <AdminFamilyCard key={family.id} family={family} />
+        {filteredFamilies.map((family) => (
+          <AdminFamilyCard
+            key={family.id}
+            family={family}
+            isOpen={openId === family.id}
+            onToggle={() => setOpenId((prev) => (prev === family.id ? null : family.id))}
+          />
         ))}
+
+        {filteredFamilies.length === 0 && (
+          <p className="admin-no-results">No households match &ldquo;{query}&rdquo;.</p>
+        )}
       </div>
     </div>
   );

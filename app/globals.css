@@ -2422,18 +2422,75 @@ input, textarea, select {
   margin-top: 4px;
 }
 
+.admin-toolbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.admin-search-wrap {
+  position: relative;
+  flex: 1;
+  max-width: 420px;
+}
+
+.admin-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+}
+
+.admin-search-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 14px 10px 38px;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.admin-search-input:focus {
+  border-color: var(--purple);
+}
+
+.admin-family-count {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.admin-no-results {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 24px 0;
+  text-align: center;
+}
+
 .admin-family-list {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
 }
 
 .admin-family-card {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 20px;
-  padding: 18px 20px;
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.admin-family-card.is-open {
+  box-shadow: var(--shadow-md);
 }
 
 .admin-family-header {
@@ -2441,9 +2498,43 @@ input, textarea, select {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.admin-family-header-btn {
+  width: 100%;
+  padding: 16px 20px;
+  text-align: left;
+}
+
+.admin-family-header-btn:hover {
+  background: var(--paper);
+}
+
+.admin-family-toggle-icon {
+  color: var(--muted);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.admin-family-header-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-family-body {
+  padding: 0 20px 18px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.admin-family-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 14px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
 }
 
 .admin-family-name {
