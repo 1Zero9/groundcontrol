@@ -80,16 +80,19 @@ export const users = pgTable("users", {
 /**
  * Standalone operator identity for the /admin console. Deliberately has NO
  * relationship to `families`/`users` at all — a family login can never carry
- * admin rights, and an admin login can never act as a family. Created only
- * via `npm run admin:create` (see `db/create-admin.ts`), never via signup or
- * any in-app UI. See docs/TECHNICAL.md §9 "Admin console & data-privacy
- * guarantee".
+ * admin rights, and an admin login can never act as a family. No password:
+ * auth is Google OAuth only, gated by a hardcoded email allowlist (see
+ * `lib/auth/admin-allowlist.ts`). A row here is auto-provisioned the first
+ * time that allowlisted email successfully signs in with Google — never via
+ * signup or any other in-app UI. See docs/TECHNICAL.md §9 "Admin console &
+ * data-privacy guarantee".
  */
 export const admins = pgTable("admins", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: text("email").notNull().unique(),
-  // scrypt-derived hash, format "salt:hash" (see lib/auth/password.ts).
-  passwordHash: text("password_hash").notNull(),
+  // Google's stable per-account identifier ("sub" claim), so a future email
+  // change on the Google side doesn't silently swap identities.
+  googleId: text("google_id").notNull().unique(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

@@ -37,7 +37,9 @@ app/
   login/page.tsx             Login screen (family)
   signup/page.tsx            Signup screen (family)
   admin/
-    login/page.tsx           /admin/login — separate operator sign-in, not a family login
+    login/page.tsx           /admin/login — "Continue with Google" button, not a family login
+    auth/google/route.ts     Starts Google OAuth (sets CSRF state cookie, redirects to Google)
+    auth/google/callback/route.ts  Verifies Google identity + allowlist, sets admin session
     page.tsx                 /admin console — operator-only, gated by its own admin session (Server Component)
     actions.ts                Admin Server Actions (connector config only — see §9)
   components/
@@ -58,19 +60,20 @@ db/
   index.ts                     DB client (pg Pool via drizzle-orm/node-postgres)
   queries.ts                   Core data-access layer (events, board items, modules, connector sync)
   auth-queries.ts              Auth-specific queries (getUserByEmail, getUserById, createFamilyWithOwner)
-  admin-auth-queries.ts          Auth queries for the standalone `admins` table (see §9)
+  admin-auth-queries.ts          Auth queries for the standalone `admins` table — Google-profile upsert (see §9)
   admin-queries.ts              Admin-only queries — families/modules/config, NEVER events/board (see §9)
   seed.ts                       Seeds module registry + a demo family/login for local dev
-  create-admin.ts                 One-off script to create an operator login (see §9)
 
 lib/
   auth/
-    password.ts                scrypt password hashing (Node's built-in crypto)
+    password.ts                scrypt password hashing (Node's built-in crypto) — family logins only
     token.ts                    Generic signed-token helper shared by both session types below
     session.ts                 Family session — signed `gc_session` cookie helpers
     actions.ts                  signupAction / loginAction / logoutAction (Server Actions)
     admin-session.ts             Admin session — separate signed `gc_admin_session` cookie (see §9)
-    admin-actions.ts             adminLoginAction / adminLogoutAction (Server Actions)
+    admin-actions.ts             adminLogoutAction (Server Action) — sign-in is the OAuth route above, not an action
+    admin-allowlist.ts           Hardcoded list of emails allowed to ever hold admin access (see §9)
+    google-oauth.ts              Minimal hand-rolled Google OAuth 2.0 client (no external library)
     admin.ts                    requireAdmin() guard for the /admin console
 
 src/
@@ -98,8 +101,9 @@ full Drizzle definitions; summary:
   concept lives here — a family login can never carry operator power (see
   [§9](#9-admin-console--data-privacy-guarantee)).
 - **`admins`** — completely standalone operator logins for the `/admin`
-  console. `email` (unique), `passwordHash`. No `familyId`, no link to
-  `users` at all — see [§9](#9-admin-console--data-privacy-guarantee).
+  console. `email` (unique), `googleId` (unique, Google's `sub` claim). No
+  password, no `familyId`, no link to `users` at all — see
+  [§9](#9-admin-console--data-privacy-guarantee).
 - **`family_members`** — the people/pets shown in the app (adult/teen/child/pet
   role, colour, avatar, name). `userId` optionally links a member profile to
   the household's login account (marks "this member IS the account holder").
@@ -203,6 +207,7 @@ Required environment variables (see `.env.local`, gitignored):
 |----------|---------|
 | `DATABASE_URL` / `POSTGRES_URL` / `PRISMA_DATABASE_URL` | Postgres connection strings (Vercel/Prisma Postgres provisioning) |
 | `SESSION_SECRET` | HMAC signing key for session cookies |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth credentials for `/admin` sign-in only (see [§9](#9-admin-console--data-privacy-guarantee)) |
 
 ```bash
 npm install
@@ -314,16 +319,17 @@ layered on top of one.
 ### Admin identity is not a family login
 There is no such thing as "a family user who is also an admin":
 - Admin logins live in their own `admins` table (`db/schema.ts`) — `email` +
-  `passwordHash` only. It has **no `familyId` column and no relationship to
-  `users`/`families` at all.**
-- The `/admin/login` screen (`app/admin/login/page.tsx`,
-  `lib/auth/admin-actions.ts`'s `adminLoginAction`) is a completely separate
-  sign-in flow from `/login`. Signing in there sets a distinct cookie,
-  `gc_admin_session` (`lib/auth/admin-session.ts`), never the family
-  `gc_session` cookie — the two sessions share only the underlying HMAC
-  signing helper (`lib/auth/token.ts`) to avoid duplicating crypto code, not
-  the payload shape, cookie name, or lifetime (12 hours for admin sessions
-  vs. 30 days for family sessions).
+  `googleId` (Google's `sub` claim) only, **no password at all**. It has
+  **no `familyId` column and no relationship to `users`/`families` at all.**
+- The `/admin/login` screen (`app/admin/login/page.tsx`) is a single
+  "Continue with Google" button — a completely separate sign-in flow from
+  `/login`, and a different identity provider path entirely (Google OAuth vs.
+  the hand-rolled password check family logins use). Signing in there sets a
+  distinct cookie, `gc_admin_session` (`lib/auth/admin-session.ts`), never
+  the family `gc_session` cookie — the two sessions share only the
+  underlying HMAC signing helper (`lib/auth/token.ts`) to avoid duplicating
+  crypto code, not the payload shape, cookie name, or lifetime (12 hours for
+  admin sessions vs. 30 days for family sessions).
 - Your own family account (e.g. the demo `dad@example.com` login) is an
   ordinary row in `users` like any other household's — it cannot be
   "promoted" to admin, and has no `isAdmin`-style flag to flip. Operating
@@ -331,17 +337,38 @@ There is no such thing as "a family user who is also an admin":
   unrelated identities.
 
 ### Who can access it
-- `lib/auth/admin.ts`'s `requireAdmin()` checks the `gc_admin_session` cookie
-  against the `admins` table — never the family session, never `users`.
-- Admin accounts are **never** created through signup or any in-app UI — the
-  only way to create one is `npm run admin:create -- <email> "<password>"`
-  (`db/create-admin.ts`), run directly by whoever operates the deployment.
-  There is deliberately no `--promote` path from an existing family login.
-- `requireAdmin()` re-reads the admin row from the database on every request
-  (never trusts the cookie payload alone), so deleting an admin account
-  revokes access on the very next request — not after the session expires.
-- Non-admins hitting `/admin` are redirected to `/admin/login` (not shown a
+Access is gated by **two independent checks**, both of which must pass:
+1. **Google sign-in succeeds** and Google reports `email_verified: true` for
+   the account (`lib/auth/google-oauth.ts`).
+2. **The verified email is in a hardcoded allowlist**
+   (`lib/auth/admin-allowlist.ts` — currently just `onezeronine@gmail.com`).
+   This is checked in `app/admin/auth/google/callback/route.ts` **before**
+   an `admins` row is ever created or a session is ever issued. Completing
+   Google sign-in with some other Google account does not grant access —
+   the callback rejects it and redirects to `/admin/login?error=...` without
+   touching the database at all.
+- The allowlist is a plain array in source code, not a database table or
+  in-app setting — changing who can ever be admin requires a code change
+  and redeploy, not a UI action or DB write.
+- The OAuth flow includes CSRF protection: a random `state` value is set in
+  a short-lived (`gc_admin_oauth_state`, 10 min) cookie before redirecting
+  to Google, and the callback rejects the request if the returned `state`
+  doesn't match.
+- The first time the allowlisted email signs in, `upsertAdminFromGoogleProfile`
+  (`db/admin-auth-queries.ts`) creates its `admins` row automatically; on
+  every later sign-in it just re-verifies and reuses that row (updating
+  `googleId` if it ever changes).
+- `lib/auth/admin.ts`'s `requireAdmin()` re-reads the admin row from the
+  database on every request (never trusts the cookie payload alone), so
+  deleting the `admins` row revokes access on the very next request.
+- Non-admins/failed sign-ins are redirected to `/admin/login` (not shown a
   403), so the route's existence isn't signalled to regular users.
+- Setup requires a Google Cloud OAuth Client ID/Secret
+  (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` env vars) with
+  `<app-origin>/admin/auth/google/callback` registered as an authorized
+  redirect URI — see the Google Cloud Console OAuth consent screen +
+  credentials setup. No email-sending infrastructure is needed (this is
+  OAuth, not magic-link email).
 - The admin console has its own logout button (`adminLogoutAction`),
   independent of the family "log out" in Profile.
 

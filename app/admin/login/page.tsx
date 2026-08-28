@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { getAdminSession } from "../../../lib/auth/admin-session";
-import { adminLoginAction } from "../../../lib/auth/admin-actions";
 import { SiteFooter } from "../../components/site-footer";
 
 export default async function AdminLoginPage({
@@ -21,29 +20,14 @@ export default async function AdminLoginPage({
         <span className="brand-dot-pulse" />
         <h1 className="auth-title">Admin sign in</h1>
         <p className="auth-subtitle">
-          Operator access only. This is a separate login from any family account.
+          Operator access only, via Google. This is a separate sign-in from any family account.
         </p>
 
         {error && <p className="auth-error">{error}</p>}
 
-        <form action={adminLoginAction} className="auth-form">
-          <label className="auth-field">
-            <span>Email</span>
-            <input type="email" name="email" required autoComplete="email" />
-          </label>
-          <label className="auth-field">
-            <span>Password</span>
-            <input
-              type="password"
-              name="password"
-              required
-              autoComplete="current-password"
-            />
-          </label>
-          <button type="submit" className="auth-submit-btn">
-            Sign in
-          </button>
-        </form>
+        <a href="/admin/auth/google" className="auth-submit-btn admin-google-btn">
+          Continue with Google
+        </a>
       </div>
 
       <SiteFooter />
