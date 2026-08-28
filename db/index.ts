@@ -22,7 +22,28 @@ export function getDb() {
     );
   }
 
-  const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false } });
+  const pool = new Pool({
+    connectionString,
+    ssl: { rejectUnauthorized: false },
+    // Serverless functions (Vercel) freeze between invocations; the DB or
+    // infra can silently kill an idle socket during that freeze, and the next
+    // query on that stale pooled connection then fails with "Connection
+    // terminated unexpectedly". Closing idle clients quickly (rather than
+    // holding them across a freeze) makes that far less likely, and `max: 1`
+    // keeps this appropriate for a single serverless invocation's concurrency.
+    max: 1,
+    idleTimeoutMillis: 10_000,
+    connectionTimeoutMillis: 10_000,
+  });
+
+  // Without this listener, an error on an idle pooled client (e.g. the DB
+  // closing a stale connection) is an unhandled 'error' event and crashes the
+  // whole process instead of just failing the next query that would open a
+  // fresh connection anyway.
+  pool.on("error", (err) => {
+    console.error("Postgres pool idle client error", err);
+  });
+
   cached = drizzle(pool, { schema });
   return cached;
 }
