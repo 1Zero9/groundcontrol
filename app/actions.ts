@@ -6,6 +6,8 @@ import {
   createEvent,
   removeBoardItem,
   setFamilyModuleEnabled,
+  setModuleFeedUrl,
+  syncModuleFeed,
   toggleBoardItem,
   type NewBoardItemInput,
   type NewEventInput,
@@ -41,4 +43,19 @@ export async function setFamilyModuleEnabledAction(
 ) {
   await setFamilyModuleEnabled(familyId, moduleKey, enabled);
   revalidatePath("/");
+}
+
+export async function saveModuleFeedUrlAction(
+  familyId: string,
+  moduleKey: string,
+  feedUrl: string
+) {
+  await setModuleFeedUrl(familyId, moduleKey, feedUrl);
+  revalidatePath("/");
+}
+
+export async function syncModuleFeedAction(familyId: string, moduleKey: string) {
+  const result = await syncModuleFeed(familyId, moduleKey);
+  revalidatePath("/");
+  return result;
 }

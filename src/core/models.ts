@@ -86,4 +86,8 @@ export type GroundControlModule = {
   isCore: boolean;
   status?: "installed" | "available" | "coming-soon";
   icon?: string;
+  /** Calendar feed (iCal/webcal) URL this module syncs events from, if set. */
+  feedUrl?: string;
+  /** ISO timestamp of the last successful feed sync, if any. */
+  lastSyncedAt?: string;
 };

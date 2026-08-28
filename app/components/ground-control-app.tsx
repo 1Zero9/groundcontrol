@@ -24,7 +24,9 @@ import {
   createBoardItemAction,
   createEventAction,
   removeBoardItemAction,
+  saveModuleFeedUrlAction,
   setFamilyModuleEnabledAction,
+  syncModuleFeedAction,
   toggleBoardItemAction,
 } from "../actions";
 
@@ -147,6 +149,30 @@ export function GroundControlApp({
         prev.map((m) => (m.key === moduleKey ? { ...m, enabled: !enabled } : m))
       );
     }
+  };
+
+  const handleSaveModuleFeedUrl = async (moduleKey: string, feedUrl: string) => {
+    await saveModuleFeedUrlAction(familyId, moduleKey, feedUrl);
+    setModules((prev) =>
+      prev.map((m) => (m.key === moduleKey ? { ...m, feedUrl } : m))
+    );
+  };
+
+  const handleSyncModuleFeed = async (moduleKey: string) => {
+    const result = await syncModuleFeedAction(familyId, moduleKey);
+    setEvents((prev) => {
+      const byId = new Map(prev.map((e) => [e.id, e]));
+      for (const synced of result.events) {
+        byId.set(synced.id, synced);
+      }
+      return Array.from(byId.values());
+    });
+    setModules((prev) =>
+      prev.map((m) =>
+        m.key === moduleKey ? { ...m, lastSyncedAt: result.lastSyncedAt } : m
+      )
+    );
+    return result;
   };
 
   return (
@@ -302,6 +328,8 @@ export function GroundControlApp({
                 <ModulesView
                   modules={modules}
                   onToggle={handleToggleModule}
+                  onSaveFeedUrl={handleSaveModuleFeedUrl}
+                  onSyncFeed={handleSyncModuleFeed}
                   onBack={() => setActiveTab("profile")}
                 />
               )}

@@ -2,6 +2,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "./index";
 import { boardItems, events, familyMembers, familyModules, families, modules } from "./schema";
 import { moduleRegistry } from "../src/core/module-registry";
+import { parseIcalFeed } from "../src/core/connectors";
 import type { BoardItem, Event, FamilyMember, GroundControlModule } from "../src/core/models";
 
 type MemberRow = typeof familyMembers.$inferSelect;
@@ -240,13 +241,13 @@ export async function getFamilyModules(familyId: string): Promise<GroundControlM
   ]);
 
   const dbModuleByKey = new Map(moduleRows.map((m) => [m.key, m]));
-  const enabledByModuleId = new Map(familyModuleRows.map((fm) => [fm.moduleId, fm.enabled]));
+  const familyModuleByModuleId = new Map(familyModuleRows.map((fm) => [fm.moduleId, fm]));
 
   return moduleRegistry.map((def) => {
     const dbModule = dbModuleByKey.get(def.key);
-    const enabled = dbModule
-      ? enabledByModuleId.get(dbModule.id) ?? def.isCore
-      : def.isCore;
+    const familyModule = dbModule ? familyModuleByModuleId.get(dbModule.id) : undefined;
+    const enabled = familyModule ? familyModule.enabled : def.isCore;
+    const config = (familyModule?.config as Record<string, unknown>) ?? {};
 
     return {
       id: dbModule?.id ?? def.key,
@@ -257,6 +258,8 @@ export async function getFamilyModules(familyId: string): Promise<GroundControlM
       isCore: def.isCore,
       status: def.isCore ? "installed" : enabled ? "installed" : "available",
       icon: def.icon,
+      feedUrl: typeof config.feedUrl === "string" ? config.feedUrl : undefined,
+      lastSyncedAt: typeof config.lastSyncedAt === "string" ? config.lastSyncedAt : undefined,
     };
   });
 }
@@ -286,4 +289,150 @@ export async function setFamilyModuleEnabled(
   } else {
     await db.insert(familyModules).values({ familyId, moduleId, enabled });
   }
+}
+
+async function getOrCreateFamilyModuleRow(
+  familyId: string,
+  moduleId: string,
+  defaultEnabled: boolean
+) {
+  const db = getDb();
+  const [existing] = await db
+    .select()
+    .from(familyModules)
+    .where(and(eq(familyModules.familyId, familyId), eq(familyModules.moduleId, moduleId)))
+    .limit(1);
+
+  if (existing) return existing;
+
+  const [inserted] = await db
+    .insert(familyModules)
+    .values({ familyId, moduleId, enabled: defaultEnabled })
+    .returning();
+  return inserted;
+}
+
+/**
+ * Saves the calendar feed (iCal/webcal) URL a household wants a module
+ * (e.g. Sports, School) to sync events from. Stored in `family_modules.config`
+ * rather than a dedicated column, since it's module-specific configuration.
+ */
+export async function setModuleFeedUrl(
+  familyId: string,
+  moduleKey: string,
+  feedUrl: string
+): Promise<void> {
+  const moduleId = await getModuleId(moduleKey);
+  if (!moduleId) {
+    throw new Error(`Unknown module key: ${moduleKey}`);
+  }
+
+  const db = getDb();
+  const row = await getOrCreateFamilyModuleRow(familyId, moduleId, false);
+  const config = { ...((row.config as Record<string, unknown>) ?? {}), feedUrl };
+  await db.update(familyModules).set({ config }).where(eq(familyModules.id, row.id));
+}
+
+export type SyncModuleFeedResult = {
+  events: Event[];
+  createdCount: number;
+  updatedCount: number;
+  lastSyncedAt: string;
+};
+
+/**
+ * Fetches this family's configured feed URL for `moduleKey`, parses it as
+ * iCal, and upserts events into the core `events` table — matching existing
+ * rows by (familyId, source=moduleKey, sourceId=iCal UID) so re-syncing
+ * updates rather than duplicates.
+ */
+export async function syncModuleFeed(
+  familyId: string,
+  moduleKey: string
+): Promise<SyncModuleFeedResult> {
+  const moduleId = await getModuleId(moduleKey);
+  if (!moduleId) {
+    throw new Error(`Unknown module key: ${moduleKey}`);
+  }
+
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(familyModules)
+    .where(and(eq(familyModules.familyId, familyId), eq(familyModules.moduleId, moduleId)))
+    .limit(1);
+
+  const config = (row?.config as Record<string, unknown>) ?? {};
+  const feedUrl = typeof config.feedUrl === "string" ? config.feedUrl : undefined;
+  if (!feedUrl) {
+    throw new Error("No calendar feed URL set for this module yet");
+  }
+
+  const connectorEvents = await parseIcalFeed(feedUrl);
+
+  let createdCount = 0;
+  let updatedCount = 0;
+  const syncedEvents: Event[] = [];
+
+  for (const ce of connectorEvents) {
+    const [existingEvent] = await db
+      .select()
+      .from(events)
+      .where(
+        and(
+          eq(events.familyId, familyId),
+          eq(events.source, moduleKey),
+          eq(events.sourceId, ce.uid)
+        )
+      )
+      .limit(1);
+
+    if (existingEvent) {
+      const [updated] = await db
+        .update(events)
+        .set({
+          title: ce.title,
+          description: ce.description,
+          start: new Date(ce.start),
+          end: ce.end ? new Date(ce.end) : null,
+          allDay: ce.allDay,
+          location: ce.location,
+          updatedAt: new Date(),
+        })
+        .where(eq(events.id, existingEvent.id))
+        .returning();
+      syncedEvents.push(mapEvent(updated, moduleKey));
+      updatedCount++;
+    } else {
+      const [inserted] = await db
+        .insert(events)
+        .values({
+          familyId,
+          moduleId,
+          title: ce.title,
+          description: ce.description,
+          start: new Date(ce.start),
+          end: ce.end ? new Date(ce.end) : undefined,
+          allDay: ce.allDay,
+          category: moduleKey,
+          personIds: [],
+          location: ce.location,
+          source: moduleKey,
+          sourceId: ce.uid,
+        })
+        .returning();
+      syncedEvents.push(mapEvent(inserted, moduleKey));
+      createdCount++;
+    }
+  }
+
+  const lastSyncedAt = new Date().toISOString();
+  const newConfig = { ...config, lastSyncedAt };
+  if (row) {
+    await db.update(familyModules).set({ config: newConfig }).where(eq(familyModules.id, row.id));
+  } else {
+    await db.insert(familyModules).values({ familyId, moduleId, enabled: true, config: newConfig });
+  }
+
+  return { events: syncedEvents, createdCount, updatedCount, lastSyncedAt };
 }
