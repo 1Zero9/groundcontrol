@@ -2031,47 +2031,135 @@ input, textarea, select {
 }
 
 /* ==========================================================================
-   AUTH SCREENS (Login / Signup)
+   AUTH SCREENS (Login / Signup / Admin) — cosmic space theme
    ========================================================================== */
 .auth-screen {
+  position: relative;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  background: var(--paper);
+  padding: 60px 24px 24px;
+  overflow: hidden;
+  background: linear-gradient(160deg, #0B0620 0%, #1A1140 35%, #3D2490 75%, #5833B0 100%);
+}
+
+.auth-planet {
+  position: absolute;
+  z-index: 1;
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.auth-planet-left {
+  top: 8%;
+  left: 6%;
+}
+
+.auth-planet-right {
+  top: 14%;
+  right: 8%;
+}
+
+.auth-brand {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 28px;
+  text-align: center;
+}
+
+.auth-brand-logo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.auth-brand-wordmark {
+  display: flex;
+  flex-direction: column;
+  line-height: 0.98;
+  text-align: left;
+}
+
+.auth-brand-line1,
+.auth-brand-line2 {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.auth-brand-line1 {
+  color: #FFFFFF;
+}
+
+.auth-brand-line2 {
+  color: #B69CFF;
+}
+
+.auth-brand-tagline {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 4px;
 }
 
 .auth-card {
+  position: relative;
+  z-index: 2;
   width: 100%;
   max-width: 380px;
-  background: var(--surface);
-  border-radius: 24px;
-  box-shadow: var(--shadow-lg);
-  padding: 32px 28px;
+  background: rgba(20, 14, 46, 0.55);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(151, 118, 255, 0.35);
+  border-radius: 28px;
+  box-shadow: 0 20px 50px rgba(8, 4, 24, 0.5);
+  padding: 40px 26px 28px;
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
+.auth-card-badge {
+  position: absolute;
+  top: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(20, 14, 46, 0.9);
+  border: 2px solid rgba(151, 118, 255, 0.5);
+  box-shadow: 0 6px 18px rgba(108, 77, 255, 0.4);
+}
+
 .auth-title {
   font-size: 22px;
   font-weight: 800;
-  color: var(--ink);
+  color: #FFFFFF;
   letter-spacing: -0.4px;
-  margin-top: 10px;
+  margin-top: 4px;
 }
 
 .auth-subtitle {
   font-size: 13.5px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.6);
   margin-bottom: 12px;
 }
 
 .auth-error {
-  background: var(--pink-soft);
-  color: #B0295A;
+  background: rgba(255, 92, 168, 0.15);
+  border: 1px solid rgba(255, 92, 168, 0.3);
+  color: #FFB3D4;
   font-size: 13px;
   font-weight: 600;
   padding: 10px 14px;
@@ -2091,36 +2179,90 @@ input, textarea, select {
   gap: 6px;
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--ink-secondary);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .auth-field input {
-  border: 1.5px solid var(--line);
+  width: 100%;
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
   border-radius: 12px;
   padding: 11px 14px;
   font-size: 14.5px;
   font-weight: 500;
-  color: var(--ink);
-  background: var(--paper);
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.06);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.auth-field input::placeholder {
+  color: rgba(255, 255, 255, 0.32);
 }
 
 .auth-field input:focus {
-  border-color: var(--purple);
+  border-color: #B69CFF;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.auth-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.auth-input-wrap input {
+  padding-left: 40px;
+}
+
+.auth-input-wrap.has-toggle input {
+  padding-right: 40px;
+}
+
+.auth-input-icon {
+  position: absolute;
+  left: 13px;
+  color: rgba(255, 255, 255, 0.4);
+  pointer-events: none;
+}
+
+.auth-input-toggle {
+  position: absolute;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.auth-input-toggle:hover {
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .auth-submit-btn {
   margin-top: 6px;
-  background: var(--purple);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #8B6CFF 0%, #6C4DFF 100%);
   color: #FFFFFF;
   font-weight: 700;
   font-size: 15px;
-  padding: 13px;
-  border-radius: 14px;
-  box-shadow: 0 8px 20px var(--purple-glow);
+  padding: 14px;
+  border-radius: 999px;
+  box-shadow: 0 10px 26px rgba(108, 77, 255, 0.45);
+  transition: filter 0.15s ease, transform 0.15s ease;
 }
 
 .auth-submit-btn:hover {
-  filter: brightness(1.05);
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.auth-submit-btn:active {
+  transform: scale(0.97);
 }
 
 .admin-google-btn {
@@ -2133,12 +2275,12 @@ input, textarea, select {
 .auth-switch {
   margin-top: 18px;
   font-size: 13px;
-  color: var(--muted);
+  color: rgba(255, 255, 255, 0.55);
   text-align: center;
 }
 
 .auth-switch a {
-  color: var(--purple);
+  color: #8AD6FF;
   font-weight: 700;
 }
 
@@ -2824,6 +2966,33 @@ input, textarea, select {
   height: 14px;
   width: auto;
   display: block;
+}
+
+.site-footer-on-dark {
+  position: relative;
+  z-index: 2;
+}
+
+.site-footer-on-dark .site-footer-links,
+.site-footer-on-dark .site-footer-brand {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.site-footer-on-dark .site-footer-links a {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.site-footer-on-dark .site-footer-links a:hover,
+.site-footer-on-dark .site-footer-brand:hover {
+  color: #FFFFFF;
+}
+
+.site-footer-on-dark .site-footer-brand strong {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.site-footer-on-dark .site-footer-dot {
+  color: rgba(255, 255, 255, 0.25);
 }
 
 .profile-footer {

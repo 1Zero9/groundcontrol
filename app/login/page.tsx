@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Mail } from "lucide-react";
 import { getSession } from "../../lib/auth/session";
 import { loginAction } from "../../lib/auth/actions";
-import { SiteFooter } from "../components/site-footer";
+import { AuthShell, AuthCard } from "../components/auth-shell";
+import { PasswordField } from "../components/password-field";
 
 export default async function LoginPage({
   searchParams,
@@ -17,9 +19,8 @@ export default async function LoginPage({
   const { error } = await searchParams;
 
   return (
-    <div className="auth-screen">
-      <div className="auth-card">
-        <span className="brand-dot-pulse" />
+    <AuthShell>
+      <AuthCard>
         <h1 className="auth-title">Log in</h1>
         <p className="auth-subtitle">Access your family&apos;s mission control.</p>
 
@@ -28,16 +29,20 @@ export default async function LoginPage({
         <form action={loginAction} className="auth-form">
           <label className="auth-field">
             <span>Email</span>
-            <input type="email" name="email" required autoComplete="email" />
+            <div className="auth-input-wrap">
+              <Mail size={16} className="auth-input-icon" />
+              <input
+                type="email"
+                name="email"
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+              />
+            </div>
           </label>
-          <label className="auth-field">
+          <label className="auth-field" htmlFor="login-password">
             <span>Password</span>
-            <input
-              type="password"
-              name="password"
-              required
-              autoComplete="current-password"
-            />
+            <PasswordField id="login-password" name="password" required autoComplete="current-password" />
           </label>
           <button type="submit" className="auth-submit-btn">
             Log in
@@ -47,9 +52,7 @@ export default async function LoginPage({
         <p className="auth-switch">
           New to Ground Control? <Link href="/signup">Create a family</Link>
         </p>
-      </div>
-
-      <SiteFooter />
-    </div>
+      </AuthCard>
+    </AuthShell>
   );
 }

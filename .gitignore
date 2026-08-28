@@ -18,6 +18,8 @@
 /.vinext/
 /out/
 *.tsbuildinfo
+/AGENTS.md
+/CLAUDE.md
 
 # misc
 .DS_Store

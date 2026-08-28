@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getAdminSession } from "../../../lib/auth/admin-session";
-import { SiteFooter } from "../../components/site-footer";
+import { AuthShell, AuthCard } from "../../components/auth-shell";
 
 export default async function AdminLoginPage({
   searchParams,
@@ -15,9 +15,8 @@ export default async function AdminLoginPage({
   const { error } = await searchParams;
 
   return (
-    <div className="auth-screen">
-      <div className="auth-card">
-        <span className="brand-dot-pulse" />
+    <AuthShell>
+      <AuthCard>
         <h1 className="auth-title">Admin sign in</h1>
         <p className="auth-subtitle">
           Operator access only, via Google. This is a separate sign-in from any family account.
@@ -28,9 +27,7 @@ export default async function AdminLoginPage({
         <a href="/admin/auth/google" className="auth-submit-btn admin-google-btn">
           Continue with Google
         </a>
-      </div>
-
-      <SiteFooter />
-    </div>
+      </AuthCard>
+    </AuthShell>
   );
 }

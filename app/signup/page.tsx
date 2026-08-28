@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Mail } from "lucide-react";
 import { getSession } from "../../lib/auth/session";
 import { signupAction } from "../../lib/auth/actions";
-import { SiteFooter } from "../components/site-footer";
+import { AuthShell, AuthCard } from "../components/auth-shell";
+import { PasswordField } from "../components/password-field";
 
 export default async function SignupPage({
   searchParams,
@@ -17,9 +19,8 @@ export default async function SignupPage({
   const { error } = await searchParams;
 
   return (
-    <div className="auth-screen">
-      <div className="auth-card">
-        <span className="brand-dot-pulse" />
+    <AuthShell>
+      <AuthCard>
         <h1 className="auth-title">Create your family</h1>
         <p className="auth-subtitle">
           Set up mission control for your household in under a minute.
@@ -44,12 +45,21 @@ export default async function SignupPage({
           </label>
           <label className="auth-field">
             <span>Email</span>
-            <input type="email" name="email" required autoComplete="email" />
+            <div className="auth-input-wrap">
+              <Mail size={16} className="auth-input-icon" />
+              <input
+                type="email"
+                name="email"
+                required
+                autoComplete="email"
+                placeholder="you@example.com"
+              />
+            </div>
           </label>
-          <label className="auth-field">
+          <label className="auth-field" htmlFor="signup-password">
             <span>Password</span>
-            <input
-              type="password"
+            <PasswordField
+              id="signup-password"
               name="password"
               required
               minLength={8}
@@ -64,9 +74,7 @@ export default async function SignupPage({
         <p className="auth-switch">
           Already have an account? <Link href="/login">Log in</Link>
         </p>
-      </div>
-
-      <SiteFooter />
-    </div>
+      </AuthCard>
+    </AuthShell>
   );
 }
