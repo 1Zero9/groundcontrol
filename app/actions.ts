@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import {
   createBoardItem,
   createEvent,
+  createFamilyMember,
   removeBoardItem,
   setFamilyModuleEnabled,
   setModuleFeedUrl,
@@ -11,6 +12,7 @@ import {
   toggleBoardItem,
   type NewBoardItemInput,
   type NewEventInput,
+  type NewFamilyMemberInput,
 } from "../db/queries";
 import {
   createCustomService,
@@ -25,6 +27,12 @@ export async function createEventAction(input: NewEventInput) {
   const event = await createEvent(input);
   revalidatePath("/");
   return event;
+}
+
+export async function createFamilyMemberAction(input: NewFamilyMemberInput) {
+  const member = await createFamilyMember(input);
+  revalidatePath("/");
+  return member;
 }
 
 export async function createBoardItemAction(input: NewBoardItemInput) {

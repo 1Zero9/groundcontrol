@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Blocks, Check, ShieldCheck, User, Sparkles, LogOut, LayoutDashboard, Moon, Sun } from "lucide-react";
+import { Blocks, Check, ShieldCheck, User, Sparkles, LogOut, LayoutDashboard, Moon, Sun, UserPlus } from "lucide-react";
 import type { FamilyMember, Event, BoardItem } from "../../src/core/models";
 import { logoutAction } from "../../lib/auth/actions";
 import { SiteFooter } from "./site-footer";
@@ -15,6 +15,7 @@ interface ProfileViewProps {
   onOpenAdd: () => void;
   onOpenModules: () => void;
   onOpenKitchen: () => void;
+  onOpenAddMember: () => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
 }
@@ -28,6 +29,7 @@ export function ProfileView({
   onOpenAdd,
   onOpenModules,
   onOpenKitchen,
+  onOpenAddMember,
   isDarkMode,
   onToggleDarkMode,
 }: ProfileViewProps) {
@@ -82,6 +84,16 @@ export function ProfileView({
               Switch active view or see what everyone is up to
             </p>
           </div>
+          {currentUser.role === "adult" && (
+            <button
+              type="button"
+              className="add-member-btn"
+              onClick={onOpenAddMember}
+              aria-label="Add family member"
+            >
+              <UserPlus size={18} />
+            </button>
+          )}
         </div>
 
         <div className="family-cards-list">

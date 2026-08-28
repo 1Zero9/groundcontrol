@@ -129,6 +129,35 @@ export async function getFamilyBundle(familyId: string) {
   };
 }
 
+export type NewFamilyMemberInput = {
+  familyId: string;
+  name: string;
+  shortName?: string;
+  colour: string;
+  avatarEmoji?: string;
+  role: "adult" | "teen" | "child" | "pet";
+  title?: string;
+};
+
+export async function createFamilyMember(input: NewFamilyMemberInput): Promise<FamilyMember> {
+  const db = getDb();
+
+  const [row] = await db
+    .insert(familyMembers)
+    .values({
+      familyId: input.familyId,
+      name: input.name,
+      shortName: input.shortName,
+      colour: input.colour,
+      avatarEmoji: input.avatarEmoji,
+      role: input.role,
+      title: input.title,
+    })
+    .returning();
+
+  return mapMember(row);
+}
+
 export type NewEventInput = {
   familyId: string;
   title: string;

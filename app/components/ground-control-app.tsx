@@ -11,10 +11,12 @@ import { ProfileView } from "./profile-view";
 import { ModulesView } from "./modules-view";
 import { KitchenDisplayView } from "./kitchen-display-view";
 import { AddModal } from "./add-modal";
+import { AddMemberModal } from "./add-member-modal";
 import {
   createBoardItemAction,
   createCustomServiceAction,
   createEventAction,
+  createFamilyMemberAction,
   deleteCustomServiceAction,
   discoverCalendarFeedsAction,
   removeBoardItemAction,
@@ -39,7 +41,7 @@ type TabView = "today" | "week" | "remember" | "profile" | "modules" | "kitchen"
 
 export function GroundControlApp({
   familyId,
-  family,
+  family: initialFamily,
   events: initialEvents,
   initialBoard,
   initialModules,
@@ -47,12 +49,14 @@ export function GroundControlApp({
 }: GroundControlAppProps) {
   const [activeTab, setActiveTab] = useState<TabView>("today");
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState(family[0]?.id ?? "");
+  const [family, setFamily] = useState<FamilyMember[]>(initialFamily);
+  const [currentUserId, setCurrentUserId] = useState(initialFamily[0]?.id ?? "");
   const [events, setEvents] = useState<Event[]>(initialEvents);
   const [board, setBoard] = useState<BoardItem[]>(initialBoard);
   const [modules, setModules] = useState<GroundControlModule[]>(initialModules);
   const [customServices, setCustomServices] = useState<CustomService[]>(initialCustomServices);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
 
   // Register service worker if available
   useEffect(() => {
@@ -222,6 +226,26 @@ export function GroundControlApp({
     return discoverCalendarFeedsAction(pageUrl);
   };
 
+  const handleSaveMember = async (draft: FamilyMember) => {
+    const optimisticId = draft.id;
+    setFamily((prev) => [...prev, draft]);
+    try {
+      const saved = await createFamilyMemberAction({
+        familyId,
+        name: draft.name,
+        shortName: draft.shortName,
+        colour: draft.colour,
+        avatarEmoji: draft.avatarEmoji,
+        role: draft.role,
+        title: draft.title,
+      });
+      setFamily((prev) => prev.map((m) => (m.id === optimisticId ? saved : m)));
+    } catch (err) {
+      console.error("Failed to add family member", err);
+      setFamily((prev) => prev.filter((m) => m.id !== optimisticId));
+    }
+  };
+
   return (
     <div
       className={`app-viewport-root ${isDarkMode ? "theme-dark" : "theme-light"}`}
@@ -316,6 +340,7 @@ export function GroundControlApp({
                   onOpenAdd={() => setIsAddOpen(true)}
                   onOpenModules={() => setActiveTab("modules")}
                   onOpenKitchen={() => setActiveTab("kitchen")}
+                  onOpenAddMember={() => setIsAddMemberOpen(true)}
                   isDarkMode={isDarkMode}
                   onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
                 />
@@ -392,6 +417,13 @@ export function GroundControlApp({
         customServices={customServices}
         onSaveEvent={handleSaveEvent}
         onSaveBoardItem={handleSaveBoardItem}
+      />
+
+      {/* Add Family Member Modal */}
+      <AddMemberModal
+        isOpen={isAddMemberOpen}
+        onClose={() => setIsAddMemberOpen(false)}
+        onSaveMember={handleSaveMember}
       />
     </div>
   );
