@@ -15,6 +15,7 @@ export const modules: GroundControlModule[] = moduleRegistry.map((m) => ({
   isCore: m.isCore,
   status: m.isCore ? "installed" : "available",
   icon: m.icon,
+  feeds: [],
 }));
 
 // Connectors (ClubZap, DDSL, generic iCal) feed events into modules — mainly

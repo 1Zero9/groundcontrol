@@ -3,6 +3,7 @@ import { getDb } from "./index";
 import { familyMembers, familyModules, families, modules, users } from "./schema";
 import { moduleRegistry } from "../src/core/module-registry";
 import { listCustomServices, type CustomService } from "./custom-services-queries";
+import { readModuleFeeds } from "./queries";
 import type { GroundControlModule } from "../src/core/models";
 
 /**
@@ -73,8 +74,7 @@ export async function listFamiliesForAdmin(): Promise<AdminFamilySummary[]> {
         enabled,
         isCore: def.isCore,
         icon: def.icon,
-        feedUrl: typeof config.feedUrl === "string" ? config.feedUrl : undefined,
-        lastSyncedAt: typeof config.lastSyncedAt === "string" ? config.lastSyncedAt : undefined,
+        feeds: readModuleFeeds(config),
       };
     });
 

@@ -22,7 +22,8 @@ import {
   deleteCustomServiceAction,
   discoverCalendarFeedsAction,
   removeBoardItemAction,
-  saveModuleFeedUrlAction,
+  removeModuleFeedAction,
+  saveModuleFeedAction,
   setCustomServiceFeedUrlAction,
   setFamilyModuleEnabledAction,
   syncCustomServiceFeedAction,
@@ -158,15 +159,41 @@ export function GroundControlApp({
     }
   };
 
-  const handleSaveModuleFeedUrl = async (moduleKey: string, feedUrl: string) => {
-    await saveModuleFeedUrlAction(familyId, moduleKey, feedUrl);
+  const handleSaveModuleFeed = async (
+    moduleKey: string,
+    feed: { id?: string; label: string; url: string }
+  ) => {
+    const saved = await saveModuleFeedAction(familyId, moduleKey, feed);
     setModules((prev) =>
-      prev.map((m) => (m.key === moduleKey ? { ...m, feedUrl } : m))
+      prev.map((m) => {
+        if (m.key !== moduleKey) return m;
+        const exists = m.feeds.some((f) => f.id === saved.id);
+        const feeds = exists
+          ? m.feeds.map((f) => (f.id === saved.id ? saved : f))
+          : [...m.feeds, saved];
+        return { ...m, feeds };
+      })
     );
+    return saved;
   };
 
-  const handleSyncModuleFeed = async (moduleKey: string) => {
-    const result = await syncModuleFeedAction(familyId, moduleKey);
+  const handleRemoveModuleFeed = async (moduleKey: string, feedId: string) => {
+    const previous = modules;
+    setModules((prev) =>
+      prev.map((m) =>
+        m.key === moduleKey ? { ...m, feeds: m.feeds.filter((f) => f.id !== feedId) } : m
+      )
+    );
+    try {
+      await removeModuleFeedAction(familyId, moduleKey, feedId);
+    } catch (err) {
+      console.error("Failed to remove feed", err);
+      setModules(previous);
+    }
+  };
+
+  const handleSyncModuleFeed = async (moduleKey: string, feedId: string) => {
+    const result = await syncModuleFeedAction(familyId, moduleKey, feedId);
     setEvents((prev) => {
       const byId = new Map(prev.map((e) => [e.id, e]));
       for (const synced of result.events) {
@@ -176,7 +203,14 @@ export function GroundControlApp({
     });
     setModules((prev) =>
       prev.map((m) =>
-        m.key === moduleKey ? { ...m, lastSyncedAt: result.lastSyncedAt } : m
+        m.key === moduleKey
+          ? {
+              ...m,
+              feeds: m.feeds.map((f) =>
+                f.id === feedId ? { ...f, lastSyncedAt: result.lastSyncedAt } : f
+              ),
+            }
+          : m
       )
     );
     return result;
@@ -372,8 +406,9 @@ export function GroundControlApp({
                 <ModulesView
                   modules={modules}
                   onToggle={handleToggleModule}
-                  onSaveFeedUrl={handleSaveModuleFeedUrl}
+                  onSaveFeed={handleSaveModuleFeed}
                   onSyncFeed={handleSyncModuleFeed}
+                  onRemoveFeed={handleRemoveModuleFeed}
                   onBack={() => setActiveTab("profile")}
                   customServices={customServices}
                   onAddCustomService={handleAddCustomService}

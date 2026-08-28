@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "../../lib/auth/admin";
 import {
+  removeModuleFeed,
+  saveModuleFeed,
   setFamilyModuleEnabled,
-  setModuleFeedUrl,
   syncModuleFeed,
 } from "../../db/queries";
 import { renameFamily, resetFamilyLogin } from "../../db/admin-queries";
@@ -35,19 +36,34 @@ export async function adminSetModuleEnabledAction(
   revalidatePath("/admin");
 }
 
-export async function adminSaveModuleFeedUrlAction(
+export async function adminSaveModuleFeedAction(
   familyId: string,
   moduleKey: string,
-  feedUrl: string
+  feed: { id?: string; label: string; url: string }
 ) {
   await requireAdmin();
-  await setModuleFeedUrl(familyId, moduleKey, feedUrl);
+  const saved = await saveModuleFeed(familyId, moduleKey, feed);
+  revalidatePath("/admin");
+  return saved;
+}
+
+export async function adminRemoveModuleFeedAction(
+  familyId: string,
+  moduleKey: string,
+  feedId: string
+) {
+  await requireAdmin();
+  await removeModuleFeed(familyId, moduleKey, feedId);
   revalidatePath("/admin");
 }
 
-export async function adminSyncModuleFeedAction(familyId: string, moduleKey: string) {
+export async function adminSyncModuleFeedAction(
+  familyId: string,
+  moduleKey: string,
+  feedId: string
+) {
   await requireAdmin();
-  const result = await syncModuleFeed(familyId, moduleKey);
+  const result = await syncModuleFeed(familyId, moduleKey, feedId);
   revalidatePath("/admin");
   return {
     createdCount: result.createdCount,

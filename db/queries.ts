@@ -1,10 +1,11 @@
+import { randomUUID } from "crypto";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "./index";
 import { boardItems, events, familyMembers, familyModules, families, modules } from "./schema";
 import { moduleRegistry } from "../src/core/module-registry";
 import { parseIcalFeed } from "../src/core/connectors";
 import { listCustomServices } from "./custom-services-queries";
-import type { BoardItem, Event, FamilyMember, GroundControlModule } from "../src/core/models";
+import type { BoardItem, Event, FamilyMember, GroundControlModule, ModuleFeed } from "../src/core/models";
 
 type MemberRow = typeof familyMembers.$inferSelect;
 type EventRow = typeof events.$inferSelect;
@@ -66,6 +67,31 @@ function mapBoardItem(row: BoardItemRow, moduleKey?: string | null): BoardItem {
     badge: row.badge ?? undefined,
     color: row.color ?? undefined,
   };
+}
+
+/**
+ * Reads the calendar feeds attached to a module from its `family_modules.config`
+ * JSON blob. Modules support multiple feeds (e.g. one per kid/team) stored as
+ * `config.feeds: ModuleFeed[]`. Transparently migrates the older single-feed
+ * shape (`config.feedUrl` + `config.lastSyncedAt`) into a one-item feeds list
+ * so existing households don't lose their configured feed.
+ */
+export function readModuleFeeds(config: Record<string, unknown>): ModuleFeed[] {
+  if (Array.isArray(config.feeds)) {
+    return config.feeds as ModuleFeed[];
+  }
+  if (typeof config.feedUrl === "string" && config.feedUrl) {
+    return [
+      {
+        id: "default",
+        label: "Calendar feed",
+        url: config.feedUrl,
+        lastSyncedAt:
+          typeof config.lastSyncedAt === "string" ? config.lastSyncedAt : undefined,
+      },
+    ];
+  }
+  return [];
 }
 
 async function getModuleId(key: string): Promise<string | undefined> {
@@ -311,8 +337,7 @@ export async function getFamilyModules(familyId: string): Promise<GroundControlM
       isCore: def.isCore,
       status: def.isCore ? "installed" : enabled ? "installed" : "available",
       icon: def.icon,
-      feedUrl: typeof config.feedUrl === "string" ? config.feedUrl : undefined,
-      lastSyncedAt: typeof config.lastSyncedAt === "string" ? config.lastSyncedAt : undefined,
+      feeds: readModuleFeeds(config),
     };
   });
 }
@@ -366,15 +391,16 @@ async function getOrCreateFamilyModuleRow(
 }
 
 /**
- * Saves the calendar feed (iCal/webcal) URL a household wants a module
- * (e.g. Sports, School) to sync events from. Stored in `family_modules.config`
- * rather than a dedicated column, since it's module-specific configuration.
+ * Adds a new calendar feed, or updates an existing one (by id), for a
+ * household's module (e.g. Sports, School). Modules support multiple feeds —
+ * e.g. one per kid/team — each with its own label + URL, stored as
+ * `family_modules.config.feeds`.
  */
-export async function setModuleFeedUrl(
+export async function saveModuleFeed(
   familyId: string,
   moduleKey: string,
-  feedUrl: string
-): Promise<void> {
+  feed: { id?: string; label: string; url: string }
+): Promise<ModuleFeed> {
   const moduleId = await getModuleId(moduleKey);
   if (!moduleId) {
     throw new Error(`Unknown module key: ${moduleKey}`);
@@ -382,8 +408,54 @@ export async function setModuleFeedUrl(
 
   const db = getDb();
   const row = await getOrCreateFamilyModuleRow(familyId, moduleId, false);
-  const config = { ...((row.config as Record<string, unknown>) ?? {}), feedUrl };
-  await db.update(familyModules).set({ config }).where(eq(familyModules.id, row.id));
+  const config = (row.config as Record<string, unknown>) ?? {};
+  const feeds = readModuleFeeds(config);
+
+  let saved: ModuleFeed;
+  const existingIndex = feed.id ? feeds.findIndex((f) => f.id === feed.id) : -1;
+  if (existingIndex >= 0) {
+    saved = { ...feeds[existingIndex], label: feed.label, url: feed.url };
+    feeds[existingIndex] = saved;
+  } else {
+    saved = { id: randomUUID(), label: feed.label, url: feed.url };
+    feeds.push(saved);
+  }
+
+  const newConfig: Record<string, unknown> = { ...config, feeds };
+  delete newConfig.feedUrl;
+  delete newConfig.lastSyncedAt;
+  await db.update(familyModules).set({ config: newConfig }).where(eq(familyModules.id, row.id));
+  return saved;
+}
+
+/**
+ * Removes a single calendar feed from a module's config. Any events already
+ * synced from it are left in place (they simply stop updating).
+ */
+export async function removeModuleFeed(
+  familyId: string,
+  moduleKey: string,
+  feedId: string
+): Promise<void> {
+  const moduleId = await getModuleId(moduleKey);
+  if (!moduleId) {
+    throw new Error(`Unknown module key: ${moduleKey}`);
+  }
+
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(familyModules)
+    .where(and(eq(familyModules.familyId, familyId), eq(familyModules.moduleId, moduleId)))
+    .limit(1);
+  if (!row) return;
+
+  const config = (row.config as Record<string, unknown>) ?? {};
+  const feeds = readModuleFeeds(config).filter((f) => f.id !== feedId);
+  const newConfig: Record<string, unknown> = { ...config, feeds };
+  delete newConfig.feedUrl;
+  delete newConfig.lastSyncedAt;
+  await db.update(familyModules).set({ config: newConfig }).where(eq(familyModules.id, row.id));
 }
 
 export type SyncModuleFeedResult = {
@@ -394,14 +466,16 @@ export type SyncModuleFeedResult = {
 };
 
 /**
- * Fetches this family's configured feed URL for `moduleKey`, parses it as
+ * Fetches one specific configured feed (by id) for `moduleKey`, parses it as
  * iCal, and upserts events into the core `events` table — matching existing
- * rows by (familyId, source=moduleKey, sourceId=iCal UID) so re-syncing
- * updates rather than duplicates.
+ * rows by (familyId, source=moduleKey, sourceId=`feedId::iCal UID`) so
+ * re-syncing updates rather than duplicates, and separate feeds on the same
+ * module (e.g. two kids' sports calendars) never collide with each other.
  */
 export async function syncModuleFeed(
   familyId: string,
-  moduleKey: string
+  moduleKey: string,
+  feedId: string
 ): Promise<SyncModuleFeedResult> {
   const moduleId = await getModuleId(moduleKey);
   if (!moduleId) {
@@ -416,18 +490,22 @@ export async function syncModuleFeed(
     .limit(1);
 
   const config = (row?.config as Record<string, unknown>) ?? {};
-  const feedUrl = typeof config.feedUrl === "string" ? config.feedUrl : undefined;
-  if (!feedUrl) {
-    throw new Error("No calendar feed URL set for this module yet");
+  const feeds = readModuleFeeds(config);
+  const feedIndex = feeds.findIndex((f) => f.id === feedId);
+  const feed = feedIndex >= 0 ? feeds[feedIndex] : undefined;
+  if (!feed || !feed.url) {
+    throw new Error("No calendar feed URL set for this feed yet");
   }
 
-  const connectorEvents = await parseIcalFeed(feedUrl);
+  const connectorEvents = await parseIcalFeed(feed.url);
+  const sourcePrefix = `${feedId}::`;
 
   let createdCount = 0;
   let updatedCount = 0;
   const syncedEvents: Event[] = [];
 
   for (const ce of connectorEvents) {
+    const sourceId = `${sourcePrefix}${ce.uid}`;
     const [existingEvent] = await db
       .select()
       .from(events)
@@ -435,7 +513,7 @@ export async function syncModuleFeed(
         and(
           eq(events.familyId, familyId),
           eq(events.source, moduleKey),
-          eq(events.sourceId, ce.uid)
+          eq(events.sourceId, sourceId)
         )
       )
       .limit(1);
@@ -471,7 +549,7 @@ export async function syncModuleFeed(
           personIds: [],
           location: ce.location,
           source: moduleKey,
-          sourceId: ce.uid,
+          sourceId,
         })
         .returning();
       syncedEvents.push(mapEvent(inserted, moduleKey));
@@ -480,7 +558,10 @@ export async function syncModuleFeed(
   }
 
   const lastSyncedAt = new Date().toISOString();
-  const newConfig = { ...config, lastSyncedAt };
+  feeds[feedIndex] = { ...feed, lastSyncedAt };
+  const newConfig: Record<string, unknown> = { ...config, feeds };
+  delete newConfig.feedUrl;
+  delete newConfig.lastSyncedAt;
   if (row) {
     await db.update(familyModules).set({ config: newConfig }).where(eq(familyModules.id, row.id));
   } else {

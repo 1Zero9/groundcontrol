@@ -6,8 +6,9 @@ import {
   createEvent,
   createFamilyMember,
   removeBoardItem,
+  removeModuleFeed,
+  saveModuleFeed,
   setFamilyModuleEnabled,
-  setModuleFeedUrl,
   syncModuleFeed,
   toggleBoardItem,
   updateFamilyMemberAvatar,
@@ -68,17 +69,27 @@ export async function setFamilyModuleEnabledAction(
   revalidatePath("/");
 }
 
-export async function saveModuleFeedUrlAction(
+export async function saveModuleFeedAction(
   familyId: string,
   moduleKey: string,
-  feedUrl: string
+  feed: { id?: string; label: string; url: string }
 ) {
-  await setModuleFeedUrl(familyId, moduleKey, feedUrl);
+  const saved = await saveModuleFeed(familyId, moduleKey, feed);
+  revalidatePath("/");
+  return saved;
+}
+
+export async function removeModuleFeedAction(
+  familyId: string,
+  moduleKey: string,
+  feedId: string
+) {
+  await removeModuleFeed(familyId, moduleKey, feedId);
   revalidatePath("/");
 }
 
-export async function syncModuleFeedAction(familyId: string, moduleKey: string) {
-  const result = await syncModuleFeed(familyId, moduleKey);
+export async function syncModuleFeedAction(familyId: string, moduleKey: string, feedId: string) {
+  const result = await syncModuleFeed(familyId, moduleKey, feedId);
   revalidatePath("/");
   return result;
 }

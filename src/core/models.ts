@@ -78,6 +78,19 @@ export type BoardItem = {
   color?: string;
 };
 
+/**
+ * A single calendar feed (iCal/webcal) attached to a module. Modules support
+ * more than one — e.g. a Sports module can have one feed per kid/team.
+ */
+export type ModuleFeed = {
+  id: string;
+  /** User-facing label, e.g. "Emma — Football" or "Jack — Swimming". */
+  label: string;
+  url: string;
+  /** ISO timestamp of the last successful sync of this specific feed, if any. */
+  lastSyncedAt?: string;
+};
+
 export type GroundControlModule = {
   id: string;
   /** Stable registry key, e.g. "sports" | "school" | "life". */
@@ -89,8 +102,6 @@ export type GroundControlModule = {
   isCore: boolean;
   status?: "installed" | "available" | "coming-soon";
   icon?: string;
-  /** Calendar feed (iCal/webcal) URL this module syncs events from, if set. */
-  feedUrl?: string;
-  /** ISO timestamp of the last successful feed sync, if any. */
-  lastSyncedAt?: string;
+  /** Calendar feeds (iCal/webcal) this module syncs events from — can be more than one. */
+  feeds: ModuleFeed[];
 };

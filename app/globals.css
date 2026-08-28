@@ -2607,6 +2607,114 @@ input, textarea, select {
   font-weight: 600;
 }
 
+.module-feeds-list {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.module-feed-item {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--paper);
+}
+
+.module-feed-row-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.module-feed-label-input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  font-family: var(--font-sans);
+}
+
+.module-feed-label-input:focus {
+  outline: none;
+  border-color: var(--purple);
+}
+
+.feed-remove-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.feed-remove-btn:hover:not(:disabled) {
+  background: var(--pink);
+  color: #fff;
+}
+
+.feed-remove-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.add-feed-trigger-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px dashed var(--line);
+  background: none;
+  color: var(--purple);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.add-feed-trigger-btn:hover {
+  background: var(--purple-soft);
+}
+
+.add-feed-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.feed-cancel-btn {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 9px 10px;
+}
+
+.feed-cancel-btn:hover {
+  color: var(--ink);
+}
+
 .spin {
   animation: spin 1s linear infinite;
 }

@@ -15,7 +15,7 @@ import {
   Trash2,
   Trophy,
 } from "lucide-react";
-import type { GroundControlModule } from "../../src/core/models";
+import type { GroundControlModule, ModuleFeed } from "../../src/core/models";
 import type { CustomService } from "../../db/custom-services-queries";
 
 interface SyncResult {
@@ -27,8 +27,12 @@ interface SyncResult {
 interface ModulesViewProps {
   modules: GroundControlModule[];
   onToggle: (moduleKey: string, enabled: boolean) => void;
-  onSaveFeedUrl: (moduleKey: string, feedUrl: string) => Promise<void>;
-  onSyncFeed: (moduleKey: string) => Promise<SyncResult>;
+  onSaveFeed: (
+    moduleKey: string,
+    feed: { id?: string; label: string; url: string }
+  ) => Promise<ModuleFeed>;
+  onSyncFeed: (moduleKey: string, feedId: string) => Promise<SyncResult>;
+  onRemoveFeed: (moduleKey: string, feedId: string) => Promise<void>;
   onBack: () => void;
   customServices: CustomService[];
   onAddCustomService: (input: {
@@ -56,28 +60,38 @@ function ModuleIcon({ icon }: { icon?: string }) {
   return <Icon size={20} />;
 }
 
-function FeedSyncRow({
-  mod,
-  onSaveFeedUrl,
+function ModuleFeedItem({
+  moduleKey,
+  feed,
+  onSaveFeed,
   onSyncFeed,
+  onRemoveFeed,
 }: {
-  mod: GroundControlModule;
-  onSaveFeedUrl: (moduleKey: string, feedUrl: string) => Promise<void>;
-  onSyncFeed: (moduleKey: string) => Promise<SyncResult>;
+  moduleKey: string;
+  feed: ModuleFeed;
+  onSaveFeed: (
+    moduleKey: string,
+    feed: { id?: string; label: string; url: string }
+  ) => Promise<ModuleFeed>;
+  onSyncFeed: (moduleKey: string, feedId: string) => Promise<SyncResult>;
+  onRemoveFeed: (moduleKey: string, feedId: string) => Promise<void>;
 }) {
-  const [feedUrl, setFeedUrl] = useState(mod.feedUrl ?? "");
-  const [status, setStatus] = useState<"idle" | "saving" | "syncing" | "error">("idle");
+  const [label, setLabel] = useState(feed.label);
+  const [url, setUrl] = useState(feed.url);
+  const [status, setStatus] = useState<"idle" | "saving" | "syncing" | "removing" | "error">(
+    "idle"
+  );
   const [message, setMessage] = useState<string | null>(null);
 
   const handleSync = async () => {
     setStatus("saving");
     setMessage(null);
     try {
-      if (feedUrl.trim() && feedUrl.trim() !== mod.feedUrl) {
-        await onSaveFeedUrl(mod.key, feedUrl.trim());
+      if (label.trim() !== feed.label || url.trim() !== feed.url) {
+        await onSaveFeed(moduleKey, { id: feed.id, label: label.trim() || feed.label, url: url.trim() });
       }
       setStatus("syncing");
-      const result = await onSyncFeed(mod.key);
+      const result = await onSyncFeed(moduleKey, feed.id);
       setMessage(
         `Synced — ${result.createdCount} new, ${result.updatedCount} updated`
       );
@@ -88,30 +102,58 @@ function FeedSyncRow({
     }
   };
 
-  const isBusy = status === "saving" || status === "syncing";
+  const handleRemove = async () => {
+    setStatus("removing");
+    setMessage(null);
+    try {
+      await onRemoveFeed(moduleKey, feed.id);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to remove");
+      setStatus("error");
+    }
+  };
+
+  const isBusy = status === "saving" || status === "syncing" || status === "removing";
 
   return (
-    <div className="module-feed-row">
-      <label className="module-feed-label" htmlFor={`feed-url-${mod.key}`}>
-        <LinkIcon size={13} /> Calendar feed (iCal / webcal link)
-      </label>
+    <div className="module-feed-item">
+      <div className="module-feed-row-header">
+        <input
+          type="text"
+          className="module-feed-label-input"
+          placeholder="Label, e.g. Emma — Football"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          aria-label="Feed label"
+        />
+        <button
+          type="button"
+          className="feed-remove-btn"
+          onClick={handleRemove}
+          disabled={isBusy}
+          aria-label={`Remove ${feed.label || "feed"}`}
+          title="Remove this feed"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
       <div className="module-feed-input-row">
         <input
-          id={`feed-url-${mod.key}`}
           type="text"
           className="module-feed-input"
           placeholder="webcal://... or https://....ics"
-          value={feedUrl}
-          onChange={(e) => setFeedUrl(e.target.value)}
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          aria-label="Calendar feed URL"
         />
         <button
           type="button"
           className="module-sync-btn"
           onClick={handleSync}
-          disabled={isBusy || !feedUrl.trim()}
+          disabled={isBusy || !url.trim()}
         >
-          <RefreshCw size={14} className={isBusy ? "spin" : ""} />
-          {isBusy ? "Syncing…" : "Sync now"}
+          <RefreshCw size={14} className={status === "syncing" ? "spin" : ""} />
+          {status === "syncing" ? "Syncing…" : "Sync now"}
         </button>
       </div>
       {message && (
@@ -119,11 +161,119 @@ function FeedSyncRow({
           {message}
         </p>
       )}
-      {!message && mod.lastSyncedAt && (
+      {!message && feed.lastSyncedAt && (
         <p className="module-feed-status">
-          Last synced {new Date(mod.lastSyncedAt).toLocaleString()}
+          Last synced {new Date(feed.lastSyncedAt).toLocaleString()}
         </p>
       )}
+    </div>
+  );
+}
+
+function AddFeedForm({
+  moduleKey,
+  onSaveFeed,
+}: {
+  moduleKey: string;
+  onSaveFeed: (
+    moduleKey: string,
+    feed: { id?: string; label: string; url: string }
+  ) => Promise<ModuleFeed>;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [label, setLabel] = useState("");
+  const [url, setUrl] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!label.trim() || !url.trim()) return;
+    setIsSaving(true);
+    try {
+      await onSaveFeed(moduleKey, { label: label.trim(), url: url.trim() });
+      setLabel("");
+      setUrl("");
+      setIsOpen(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isOpen) {
+    return (
+      <button type="button" className="add-feed-trigger-btn" onClick={() => setIsOpen(true)}>
+        <Plus size={14} /> Add another feed
+      </button>
+    );
+  }
+
+  return (
+    <form className="add-feed-form" onSubmit={handleAdd}>
+      <input
+        type="text"
+        className="module-feed-label-input"
+        placeholder="Label, e.g. Jack — Swimming"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        aria-label="Feed label"
+        required
+      />
+      <input
+        type="text"
+        className="module-feed-input"
+        placeholder="webcal://... or https://....ics"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        aria-label="Calendar feed URL"
+        required
+      />
+      <div className="module-feed-input-row">
+        <button
+          type="submit"
+          className="module-sync-btn"
+          disabled={isSaving || !label.trim() || !url.trim()}
+        >
+          <Plus size={14} />
+          {isSaving ? "Adding…" : "Add feed"}
+        </button>
+        <button type="button" className="feed-cancel-btn" onClick={() => setIsOpen(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function ModuleFeedsSection({
+  mod,
+  onSaveFeed,
+  onSyncFeed,
+  onRemoveFeed,
+}: {
+  mod: GroundControlModule;
+  onSaveFeed: (
+    moduleKey: string,
+    feed: { id?: string; label: string; url: string }
+  ) => Promise<ModuleFeed>;
+  onSyncFeed: (moduleKey: string, feedId: string) => Promise<SyncResult>;
+  onRemoveFeed: (moduleKey: string, feedId: string) => Promise<void>;
+}) {
+  return (
+    <div className="module-feeds-list">
+      <p className="module-feed-label">
+        <LinkIcon size={13} /> Calendar feeds (iCal / webcal links) — one per kid or team
+      </p>
+      {mod.feeds.map((feed) => (
+        <ModuleFeedItem
+          key={feed.id}
+          moduleKey={mod.key}
+          feed={feed}
+          onSaveFeed={onSaveFeed}
+          onSyncFeed={onSyncFeed}
+          onRemoveFeed={onRemoveFeed}
+        />
+      ))}
+      <AddFeedForm moduleKey={mod.key} onSaveFeed={onSaveFeed} />
     </div>
   );
 }
@@ -362,8 +512,9 @@ function AddServiceForm({
 export function ModulesView({
   modules,
   onToggle,
-  onSaveFeedUrl,
+  onSaveFeed,
   onSyncFeed,
+  onRemoveFeed,
   onBack,
   customServices,
   onAddCustomService,
@@ -450,7 +601,12 @@ export function ModulesView({
               </div>
 
               {mod.enabled && (
-                <FeedSyncRow mod={mod} onSaveFeedUrl={onSaveFeedUrl} onSyncFeed={onSyncFeed} />
+                <ModuleFeedsSection
+                  mod={mod}
+                  onSaveFeed={onSaveFeed}
+                  onSyncFeed={onSyncFeed}
+                  onRemoveFeed={onRemoveFeed}
+                />
               )}
             </div>
           ))}

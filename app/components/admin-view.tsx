@@ -16,41 +16,66 @@ import {
   ChevronRight,
   Users,
 } from "lucide-react";
-import type { GroundControlModule } from "../../src/core/models";
+import type { GroundControlModule, ModuleFeed } from "../../src/core/models";
 import type { AdminFamilySummary } from "../../db/admin-queries";
 import type { CustomService } from "../../db/custom-services-queries";
 import {
   adminCreateCustomServiceAction,
   adminDeleteCustomServiceAction,
   adminDiscoverCalendarFeedsAction,
+  adminRemoveModuleFeedAction,
   adminRenameFamilyAction,
   adminResetFamilyLoginAction,
   adminSaveCustomServiceFeedUrlAction,
-  adminSaveModuleFeedUrlAction,
+  adminSaveModuleFeedAction,
   adminSetModuleEnabledAction,
   adminSyncCustomServiceFeedAction,
   adminSyncModuleFeedAction,
 } from "../admin/actions";
+
+interface SyncResult {
+  createdCount: number;
+  updatedCount: number;
+  lastSyncedAt: string;
+}
 import { adminLogoutAction } from "../../lib/auth/admin-actions";
 
 interface AdminViewProps {
   families: AdminFamilySummary[];
 }
 
-function AdminFeedRow({ familyId, mod }: { familyId: string; mod: GroundControlModule }) {
-  const [feedUrl, setFeedUrl] = useState(mod.feedUrl ?? "");
-  const [status, setStatus] = useState<"idle" | "saving" | "syncing" | "error">("idle");
+function AdminModuleFeedItem({
+  moduleKey,
+  feed,
+  onSaveFeed,
+  onSyncFeed,
+  onRemoveFeed,
+}: {
+  moduleKey: string;
+  feed: ModuleFeed;
+  onSaveFeed: (
+    moduleKey: string,
+    feed: { id?: string; label: string; url: string }
+  ) => Promise<ModuleFeed>;
+  onSyncFeed: (moduleKey: string, feedId: string) => Promise<SyncResult>;
+  onRemoveFeed: (moduleKey: string, feedId: string) => Promise<void>;
+}) {
+  const [label, setLabel] = useState(feed.label);
+  const [url, setUrl] = useState(feed.url);
+  const [status, setStatus] = useState<"idle" | "saving" | "syncing" | "removing" | "error">(
+    "idle"
+  );
   const [message, setMessage] = useState<string | null>(null);
 
   const handleSync = async () => {
     setStatus("saving");
     setMessage(null);
     try {
-      if (feedUrl.trim() && feedUrl.trim() !== mod.feedUrl) {
-        await adminSaveModuleFeedUrlAction(familyId, mod.key, feedUrl.trim());
+      if (label.trim() !== feed.label || url.trim() !== feed.url) {
+        await onSaveFeed(moduleKey, { id: feed.id, label: label.trim() || feed.label, url: url.trim() });
       }
       setStatus("syncing");
-      const result = await adminSyncModuleFeedAction(familyId, mod.key);
+      const result = await onSyncFeed(moduleKey, feed.id);
       setMessage(`Synced — ${result.createdCount} new, ${result.updatedCount} updated`);
       setStatus("idle");
     } catch (err) {
@@ -59,40 +84,176 @@ function AdminFeedRow({ familyId, mod }: { familyId: string; mod: GroundControlM
     }
   };
 
-  const isBusy = status === "saving" || status === "syncing";
+  const handleRemove = async () => {
+    setStatus("removing");
+    setMessage(null);
+    try {
+      await onRemoveFeed(moduleKey, feed.id);
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Failed to remove");
+      setStatus("error");
+    }
+  };
+
+  const isBusy = status === "saving" || status === "syncing" || status === "removing";
 
   return (
-    <div className="module-feed-row">
-      <label className="module-feed-label" htmlFor={`admin-feed-${familyId}-${mod.key}`}>
-        <LinkIcon size={13} /> Calendar feed (iCal / webcal link)
-      </label>
+    <div className="module-feed-item">
+      <div className="module-feed-row-header">
+        <input
+          type="text"
+          className="module-feed-label-input"
+          placeholder="Label, e.g. Emma — Football"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          aria-label="Feed label"
+        />
+        <button
+          type="button"
+          className="feed-remove-btn"
+          onClick={handleRemove}
+          disabled={isBusy}
+          aria-label={`Remove ${feed.label || "feed"}`}
+          title="Remove this feed"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
       <div className="module-feed-input-row">
         <input
-          id={`admin-feed-${familyId}-${mod.key}`}
           type="text"
           className="module-feed-input"
           placeholder="webcal://... or https://....ics"
-          value={feedUrl}
-          onChange={(e) => setFeedUrl(e.target.value)}
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          aria-label="Calendar feed URL"
         />
         <button
           type="button"
           className="module-sync-btn"
           onClick={handleSync}
-          disabled={isBusy || !feedUrl.trim()}
+          disabled={isBusy || !url.trim()}
         >
-          <RefreshCw size={14} className={isBusy ? "spin" : ""} />
-          {isBusy ? "Syncing…" : "Sync now"}
+          <RefreshCw size={14} className={status === "syncing" ? "spin" : ""} />
+          {status === "syncing" ? "Syncing…" : "Sync now"}
         </button>
       </div>
       {message && (
         <p className={`module-feed-status ${status === "error" ? "is-error" : ""}`}>{message}</p>
       )}
-      {!message && mod.lastSyncedAt && (
+      {!message && feed.lastSyncedAt && (
         <p className="module-feed-status">
-          Last synced {new Date(mod.lastSyncedAt).toLocaleString()}
+          Last synced {new Date(feed.lastSyncedAt).toLocaleString()}
         </p>
       )}
+    </div>
+  );
+}
+
+function AdminAddFeedForm({
+  moduleKey,
+  onSaveFeed,
+}: {
+  moduleKey: string;
+  onSaveFeed: (
+    moduleKey: string,
+    feed: { id?: string; label: string; url: string }
+  ) => Promise<ModuleFeed>;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [label, setLabel] = useState("");
+  const [url, setUrl] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleAdd = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!label.trim() || !url.trim()) return;
+    setIsSaving(true);
+    try {
+      await onSaveFeed(moduleKey, { label: label.trim(), url: url.trim() });
+      setLabel("");
+      setUrl("");
+      setIsOpen(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isOpen) {
+    return (
+      <button type="button" className="add-feed-trigger-btn" onClick={() => setIsOpen(true)}>
+        <Plus size={14} /> Add another feed
+      </button>
+    );
+  }
+
+  return (
+    <form className="add-feed-form" onSubmit={handleAdd}>
+      <input
+        type="text"
+        className="module-feed-label-input"
+        placeholder="Label, e.g. Jack — Swimming"
+        value={label}
+        onChange={(e) => setLabel(e.target.value)}
+        aria-label="Feed label"
+        required
+      />
+      <input
+        type="text"
+        className="module-feed-input"
+        placeholder="webcal://... or https://....ics"
+        value={url}
+        onChange={(e) => setUrl(e.target.value)}
+        aria-label="Calendar feed URL"
+        required
+      />
+      <div className="module-feed-input-row">
+        <button
+          type="submit"
+          className="module-sync-btn"
+          disabled={isSaving || !label.trim() || !url.trim()}
+        >
+          <Plus size={14} />
+          {isSaving ? "Adding…" : "Add feed"}
+        </button>
+        <button type="button" className="feed-cancel-btn" onClick={() => setIsOpen(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function AdminModuleFeedsSection({
+  mod,
+  onSaveFeed,
+  onSyncFeed,
+  onRemoveFeed,
+}: {
+  mod: GroundControlModule;
+  onSaveFeed: (
+    moduleKey: string,
+    feed: { id?: string; label: string; url: string }
+  ) => Promise<ModuleFeed>;
+  onSyncFeed: (moduleKey: string, feedId: string) => Promise<SyncResult>;
+  onRemoveFeed: (moduleKey: string, feedId: string) => Promise<void>;
+}) {
+  return (
+    <div className="module-feeds-list">
+      <p className="module-feed-label">
+        <LinkIcon size={13} /> Calendar feeds (iCal / webcal links) — one per kid or team
+      </p>
+      {mod.feeds.map((feed) => (
+        <AdminModuleFeedItem
+          key={feed.id}
+          moduleKey={mod.key}
+          feed={feed}
+          onSaveFeed={onSaveFeed}
+          onSyncFeed={onSyncFeed}
+          onRemoveFeed={onRemoveFeed}
+        />
+      ))}
+      <AdminAddFeedForm moduleKey={mod.key} onSaveFeed={onSaveFeed} />
     </div>
   );
 }
@@ -466,6 +627,56 @@ function AdminFamilyCard({
     }
   };
 
+  const handleSaveFeed = async (
+    moduleKey: string,
+    feed: { id?: string; label: string; url: string }
+  ) => {
+    const saved = await adminSaveModuleFeedAction(family.id, moduleKey, feed);
+    setModules((prev) =>
+      prev.map((m) => {
+        if (m.key !== moduleKey) return m;
+        const exists = m.feeds.some((f) => f.id === saved.id);
+        const feeds = exists
+          ? m.feeds.map((f) => (f.id === saved.id ? saved : f))
+          : [...m.feeds, saved];
+        return { ...m, feeds };
+      })
+    );
+    return saved;
+  };
+
+  const handleRemoveFeed = async (moduleKey: string, feedId: string) => {
+    const previous = modules;
+    setModules((prev) =>
+      prev.map((m) =>
+        m.key === moduleKey ? { ...m, feeds: m.feeds.filter((f) => f.id !== feedId) } : m
+      )
+    );
+    try {
+      await adminRemoveModuleFeedAction(family.id, moduleKey, feedId);
+    } catch (err) {
+      console.error("Failed to remove feed", err);
+      setModules(previous);
+    }
+  };
+
+  const handleSyncFeed = async (moduleKey: string, feedId: string) => {
+    const result = await adminSyncModuleFeedAction(family.id, moduleKey, feedId);
+    setModules((prev) =>
+      prev.map((m) =>
+        m.key === moduleKey
+          ? {
+              ...m,
+              feeds: m.feeds.map((f) =>
+                f.id === feedId ? { ...f, lastSyncedAt: result.lastSyncedAt } : f
+              ),
+            }
+          : m
+      )
+    );
+    return result;
+  };
+
   return (
     <div className={`admin-family-card ${isOpen ? "is-open" : ""}`}>
       <button
@@ -524,7 +735,14 @@ function AdminFamilyCard({
                   </button>
                 </div>
 
-                {mod.enabled && <AdminFeedRow familyId={family.id} mod={mod} />}
+                {mod.enabled && (
+                  <AdminModuleFeedsSection
+                    mod={mod}
+                    onSaveFeed={handleSaveFeed}
+                    onSyncFeed={handleSyncFeed}
+                    onRemoveFeed={handleRemoveFeed}
+                  />
+                )}
               </div>
             ))}
           </div>
