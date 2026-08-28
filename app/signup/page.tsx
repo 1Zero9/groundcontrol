@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
 import { signupAction } from "../../lib/auth/actions";
+import { SiteFooter } from "../components/site-footer";
 
 export default async function SignupPage({
   searchParams,
@@ -64,6 +65,8 @@ export default async function SignupPage({
           Already have an account? <Link href="/login">Log in</Link>
         </p>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }

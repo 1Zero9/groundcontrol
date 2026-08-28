@@ -4,6 +4,7 @@ import React from "react";
 import { Blocks, Check, ShieldCheck, User, Sparkles, LogOut } from "lucide-react";
 import type { FamilyMember, Event, BoardItem } from "../../src/core/models";
 import { logoutAction } from "../../lib/auth/actions";
+import { SiteFooter } from "./site-footer";
 
 interface ProfileViewProps {
   family: FamilyMember[];
@@ -164,6 +165,8 @@ export function ProfileView({
           Log out
         </button>
       </form>
+
+      <SiteFooter className="profile-footer" />
     </div>
   );
 }

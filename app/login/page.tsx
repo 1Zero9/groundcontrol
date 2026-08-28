@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
 import { loginAction } from "../../lib/auth/actions";
+import { SiteFooter } from "../components/site-footer";
 
 export default async function LoginPage({
   searchParams,
@@ -19,8 +20,8 @@ export default async function LoginPage({
     <div className="auth-screen">
       <div className="auth-card">
         <span className="brand-dot-pulse" />
-        <h1 className="auth-title">Welcome back</h1>
-        <p className="auth-subtitle">Log in to your family&apos;s mission control.</p>
+        <h1 className="auth-title">Log in</h1>
+        <p className="auth-subtitle">Access your family&apos;s mission control.</p>
 
         {error && <p className="auth-error">{error}</p>}
 
@@ -47,6 +48,8 @@ export default async function LoginPage({
           New to Ground Control? <Link href="/signup">Create a family</Link>
         </p>
       </div>
+
+      <SiteFooter />
     </div>
   );
 }
