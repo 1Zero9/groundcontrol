@@ -2269,6 +2269,12 @@ input, textarea, select {
   color: var(--ink);
 }
 
+.site-footer-logo {
+  height: 14px;
+  width: auto;
+  display: block;
+}
+
 .profile-footer {
   margin-top: 8px;
   padding-bottom: 24px;
