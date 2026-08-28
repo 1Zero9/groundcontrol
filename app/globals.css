@@ -22,17 +22,17 @@
   --mint-soft: #EAF8F3;
   --sky: #4D96FF;
   --sky-soft: #EBF5FF;
-  --paper: #FAF8FE;
+  --paper: #EDE9F7;
   --surface: #FFFFFF;
   --surface-trans: rgba(255, 255, 255, 0.92);
   --ink: #252856;
   --ink-secondary: #4A4D70;
   --muted: #6C7E90;
-  --line: #EBE7F7;
-  --shadow-sm: 0 2px 8px rgba(44, 34, 85, 0.06);
-  --shadow-md: 0 8px 24px rgba(44, 34, 85, 0.08);
-  --shadow-lg: 0 16px 36px rgba(44, 34, 85, 0.12);
-  --shadow-dock: 0 -6px 24px rgba(44, 34, 85, 0.06);
+  --line: #DDD6F3;
+  --shadow-sm: 0 2px 8px rgba(44, 34, 85, 0.10);
+  --shadow-md: 0 8px 24px rgba(44, 34, 85, 0.12);
+  --shadow-lg: 0 16px 36px rgba(44, 34, 85, 0.16);
+  --shadow-dock: 0 -6px 24px rgba(44, 34, 85, 0.10);
 }
 
 .theme-dark {
@@ -107,7 +107,7 @@ input, textarea, select {
   width: 100%;
   max-width: 680px;
   min-height: 100vh;
-  background: var(--surface);
+  background: var(--paper);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -120,7 +120,7 @@ input, textarea, select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--surface);
+  background: var(--paper);
   z-index: 15;
 }
 
