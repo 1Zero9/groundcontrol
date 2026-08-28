@@ -158,6 +158,21 @@ export async function createFamilyMember(input: NewFamilyMemberInput): Promise<F
   return mapMember(row);
 }
 
+export async function updateFamilyMemberAvatar(
+  memberId: string,
+  avatarEmoji: string
+): Promise<FamilyMember> {
+  const db = getDb();
+
+  const [row] = await db
+    .update(familyMembers)
+    .set({ avatarEmoji })
+    .where(eq(familyMembers.id, memberId))
+    .returning();
+
+  return mapMember(row);
+}
+
 export type NewEventInput = {
   familyId: string;
   title: string;

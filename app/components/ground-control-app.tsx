@@ -12,6 +12,8 @@ import { ModulesView } from "./modules-view";
 import { KitchenDisplayView } from "./kitchen-display-view";
 import { AddModal } from "./add-modal";
 import { AddMemberModal } from "./add-member-modal";
+import { EditAvatarModal } from "./edit-avatar-modal";
+import { MemberAvatarContent } from "./member-avatar";
 import {
   createBoardItemAction,
   createCustomServiceAction,
@@ -26,6 +28,7 @@ import {
   syncCustomServiceFeedAction,
   syncModuleFeedAction,
   toggleBoardItemAction,
+  updateFamilyMemberAvatarAction,
 } from "../actions";
 
 interface GroundControlAppProps {
@@ -57,6 +60,7 @@ export function GroundControlApp({
   const [customServices, setCustomServices] = useState<CustomService[]>(initialCustomServices);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [isEditAvatarOpen, setIsEditAvatarOpen] = useState(false);
 
   // Register service worker if available
   useEffect(() => {
@@ -226,6 +230,20 @@ export function GroundControlApp({
     return discoverCalendarFeedsAction(pageUrl);
   };
 
+  const handleUpdateAvatar = async (avatarKey: string) => {
+    const memberId = currentUser.id;
+    const previous = family;
+    setFamily((prev) =>
+      prev.map((m) => (m.id === memberId ? { ...m, avatarEmoji: avatarKey } : m))
+    );
+    try {
+      await updateFamilyMemberAvatarAction(memberId, avatarKey);
+    } catch (err) {
+      console.error("Failed to update avatar", err);
+      setFamily(previous);
+    }
+  };
+
   const handleSaveMember = async (draft: FamilyMember) => {
     const optimisticId = draft.id;
     setFamily((prev) => [...prev, draft]);
@@ -290,7 +308,10 @@ export function GroundControlApp({
                   className="header-avatar-circle"
                   style={{ backgroundColor: currentUser.colour || "#6C4DFF" }}
                 >
-                  {currentUser.shortName || currentUser.name.charAt(0)}
+                  <MemberAvatarContent
+                    avatarValue={currentUser.avatarEmoji}
+                    fallback={currentUser.shortName || currentUser.name.charAt(0)}
+                  />
                 </span>
               </button>
             </header>
@@ -341,6 +362,7 @@ export function GroundControlApp({
                   onOpenModules={() => setActiveTab("modules")}
                   onOpenKitchen={() => setActiveTab("kitchen")}
                   onOpenAddMember={() => setIsAddMemberOpen(true)}
+                  onOpenEditAvatar={() => setIsEditAvatarOpen(true)}
                   isDarkMode={isDarkMode}
                   onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
                 />
@@ -424,6 +446,14 @@ export function GroundControlApp({
         isOpen={isAddMemberOpen}
         onClose={() => setIsAddMemberOpen(false)}
         onSaveMember={handleSaveMember}
+      />
+
+      {/* Edit My Avatar Modal */}
+      <EditAvatarModal
+        isOpen={isEditAvatarOpen}
+        currentAvatar={currentUser.avatarEmoji}
+        onClose={() => setIsEditAvatarOpen(false)}
+        onSave={handleUpdateAvatar}
       />
     </div>
   );

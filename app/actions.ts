@@ -10,6 +10,7 @@ import {
   setModuleFeedUrl,
   syncModuleFeed,
   toggleBoardItem,
+  updateFamilyMemberAvatar,
   type NewBoardItemInput,
   type NewEventInput,
   type NewFamilyMemberInput,
@@ -31,6 +32,12 @@ export async function createEventAction(input: NewEventInput) {
 
 export async function createFamilyMemberAction(input: NewFamilyMemberInput) {
   const member = await createFamilyMember(input);
+  revalidatePath("/");
+  return member;
+}
+
+export async function updateFamilyMemberAvatarAction(memberId: string, avatarEmoji: string) {
+  const member = await updateFamilyMemberAvatar(memberId, avatarEmoji);
   revalidatePath("/");
   return member;
 }

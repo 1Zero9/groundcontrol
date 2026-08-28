@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X } from "lucide-react";
 import type { FamilyMember } from "../../src/core/models";
+import { AVATAR_ICON_OPTIONS, avatarIconSrc } from "../../src/core/avatars";
 
 interface AddMemberModalProps {
   isOpen: boolean;
@@ -19,23 +20,12 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "pet", label: "Space Pet" },
 ];
 
-const AVATAR_OPTIONS: { emoji: string; label: string }[] = [
-  { emoji: "🧑‍✈️", label: "Commander" },
-  { emoji: "👨", label: "Man" },
-  { emoji: "👩", label: "Woman" },
-  { emoji: "🧑", label: "Person" },
-  { emoji: "👦", label: "Boy" },
-  { emoji: "👧", label: "Girl" },
-  { emoji: "🐶", label: "Dog" },
-  { emoji: "🐱", label: "Cat" },
-];
-
 const COLOUR_OPTIONS = ["#6C4DFF", "#22C1A2", "#FF5CA8", "#FFB347", "#4D96FF"];
 
 export function AddMemberModal({ isOpen, onClose, onSaveMember }: AddMemberModalProps) {
   const [name, setName] = useState("");
   const [role, setRole] = useState<Role>("child");
-  const [avatarEmoji, setAvatarEmoji] = useState(AVATAR_OPTIONS[4].emoji);
+  const [avatarEmoji, setAvatarEmoji] = useState(AVATAR_ICON_OPTIONS[4].key);
   const [colour, setColour] = useState(COLOUR_OPTIONS[0]);
 
   if (!isOpen) return null;
@@ -57,7 +47,7 @@ export function AddMemberModal({ isOpen, onClose, onSaveMember }: AddMemberModal
 
     setName("");
     setRole("child");
-    setAvatarEmoji(AVATAR_OPTIONS[4].emoji);
+    setAvatarEmoji(AVATAR_ICON_OPTIONS[4].key);
     setColour(COLOUR_OPTIONS[0]);
     onClose();
   };
@@ -135,24 +125,22 @@ export function AddMemberModal({ isOpen, onClose, onSaveMember }: AddMemberModal
           <div className="whos-it-for-section">
             <p className="whos-it-for-label">Avatar icon</p>
             <div className="avatar-pick-row" style={{ flexWrap: "wrap" }}>
-              {AVATAR_OPTIONS.map((opt) => {
-                const isSelected = avatarEmoji === opt.emoji;
+              {AVATAR_ICON_OPTIONS.map((opt) => {
+                const isSelected = avatarEmoji === opt.key;
                 return (
                   <button
-                    key={opt.emoji}
+                    key={opt.key}
                     type="button"
                     className={`avatar-pick-btn ${isSelected ? "selected" : ""}`}
-                    onClick={() => setAvatarEmoji(opt.emoji)}
+                    onClick={() => setAvatarEmoji(opt.key)}
                   >
                     <span
                       className="avatar-circle-ring"
                       style={{
                         borderColor: isSelected ? colour : "transparent",
-                        backgroundColor: colour,
-                        fontSize: 18,
                       }}
                     >
-                      {opt.emoji}
+                      <img src={avatarIconSrc(opt.key)} alt="" className="avatar-pick-img" />
                     </span>
                     <span className="avatar-pick-name">{opt.label}</span>
                   </button>

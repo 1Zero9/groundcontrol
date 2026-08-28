@@ -5,6 +5,7 @@ import { X, Calendar, Clock, MapPin, Bell } from "lucide-react";
 import type { Event, BoardItem, FamilyMember } from "../../src/core/models";
 import type { CustomService } from "../../db/custom-services-queries";
 import { CategoryBadge } from "./cosmic-illustrations";
+import { MemberAvatarContent } from "./member-avatar";
 
 interface AddModalProps {
   isOpen: boolean;
@@ -249,9 +250,10 @@ export function AddModal({
                           backgroundColor: m.colour,
                         }}
                       >
-                        <span className="avatar-letter">
-                          {m.shortName || m.name.charAt(0)}
-                        </span>
+                        <MemberAvatarContent
+                          avatarValue={m.avatarEmoji}
+                          fallback={<span className="avatar-letter">{m.shortName || m.name.charAt(0)}</span>}
+                        />
                       </span>
                       <span className="avatar-pick-name">{m.name}</span>
                     </button>

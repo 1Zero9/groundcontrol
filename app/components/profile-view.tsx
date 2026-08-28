@@ -1,10 +1,11 @@
 "use client";
 
 import React from "react";
-import { Blocks, Check, ShieldCheck, User, Sparkles, LogOut, LayoutDashboard, Moon, Sun, UserPlus } from "lucide-react";
+import { Blocks, Check, ShieldCheck, User, Sparkles, LogOut, LayoutDashboard, Moon, Sun, UserPlus, Pencil } from "lucide-react";
 import type { FamilyMember, Event, BoardItem } from "../../src/core/models";
 import { logoutAction } from "../../lib/auth/actions";
 import { SiteFooter } from "./site-footer";
+import { MemberAvatarContent } from "./member-avatar";
 
 interface ProfileViewProps {
   family: FamilyMember[];
@@ -16,6 +17,7 @@ interface ProfileViewProps {
   onOpenModules: () => void;
   onOpenKitchen: () => void;
   onOpenAddMember: () => void;
+  onOpenEditAvatar: () => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
 }
@@ -30,6 +32,7 @@ export function ProfileView({
   onOpenModules,
   onOpenKitchen,
   onOpenAddMember,
+  onOpenEditAvatar,
   isDarkMode,
   onToggleDarkMode,
 }: ProfileViewProps) {
@@ -47,9 +50,21 @@ export function ProfileView({
             className="user-hero-avatar"
             style={{ backgroundColor: currentUser.colour }}
           >
-            {currentUser.avatarEmoji || currentUser.shortName}
+            <MemberAvatarContent
+              avatarValue={currentUser.avatarEmoji}
+              fallback={currentUser.shortName}
+            />
           </span>
           <span className="online-badge-dot" />
+          <button
+            type="button"
+            className="avatar-edit-btn"
+            onClick={onOpenEditAvatar}
+            aria-label="Change your avatar"
+            title="Change your avatar"
+          >
+            <Pencil size={12} />
+          </button>
         </div>
 
         <div className="user-hero-details">
@@ -91,7 +106,8 @@ export function ProfileView({
               onClick={onOpenAddMember}
               aria-label="Add family member"
             >
-              <UserPlus size={18} />
+              <UserPlus size={16} />
+              <span>Add</span>
             </button>
           )}
         </div>
@@ -116,7 +132,7 @@ export function ProfileView({
                     className="member-card-avatar"
                     style={{ backgroundColor: member.colour }}
                   >
-                    {member.avatarEmoji || member.shortName}
+                    <MemberAvatarContent avatarValue={member.avatarEmoji} fallback={member.shortName} />
                   </span>
                   <div className="member-card-info">
                     <div className="member-name-row">
@@ -144,6 +160,13 @@ export function ProfileView({
               </button>
             );
           })}
+
+          {currentUser.role === "adult" && (
+            <button type="button" className="add-member-card" onClick={onOpenAddMember}>
+              <UserPlus size={18} />
+              Add family member
+            </button>
+          )}
         </div>
       </section>
 

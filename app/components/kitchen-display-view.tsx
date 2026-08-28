@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { Event, BoardItem, FamilyMember } from "../../src/core/models";
 import { RocketMark, PushPin } from "./cosmic-illustrations";
+import { MemberAvatarContent } from "./member-avatar";
 
 interface KitchenDisplayViewProps {
   family: FamilyMember[];
@@ -211,7 +212,7 @@ export function KitchenDisplayView({
                     className="kitchen-avatar-circle"
                     style={{ backgroundColor: m.colour }}
                   >
-                    {m.avatarEmoji || m.shortName}
+                    <MemberAvatarContent avatarValue={m.avatarEmoji} fallback={m.shortName} />
                   </span>
                   <span className="kitchen-avatar-name">{m.name}</span>
                 </button>
