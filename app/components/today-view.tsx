@@ -4,6 +4,11 @@ import React, { useState } from "react";
 import { ChevronRight, Check } from "lucide-react";
 import type { BoardItem, Event, FamilyMember } from "../../src/core/models";
 import { SaturnPlanet, Starfield, PushPin } from "./cosmic-illustrations";
+import { EventIcon } from "./event-icon";
+import { useNow } from "../../src/core/use-now";
+import { formatHeroDate, findNextEvent } from "../../src/core/date-utils";
+
+const FALLBACK_NOW = new Date(2026, 7, 26, 17, 0, 0);
 
 interface TodayViewProps {
   currentUser: FamilyMember;
@@ -22,9 +27,13 @@ export function TodayView({
   onOpenAdd,
   onToggleTask,
 }: TodayViewProps) {
-  // Find next up event for current user
+  const now = useNow();
+  const effectiveNow = now ?? FALLBACK_NOW;
+
+  // Find the next genuinely upcoming event for the current user (falling
+  // back to any family event if they have none scheduled).
   const userEvents = events.filter((e) => e.personIds.includes(currentUser.id));
-  const nextEvent = userEvents[0] || events[0];
+  const nextEvent = findNextEvent(userEvents.length > 0 ? userEvents : events, effectiveNow);
 
   // Notes and tasks for current user
   const stickyNote = board.find((b) => b.id === "b-money" || b.pinned || b.type === "note") || board[0];
@@ -53,7 +62,7 @@ export function TodayView({
 
         <div className="hero-content">
           <div className="hero-text-block">
-            <p className="hero-date">Wednesday · 26 August</p>
+            <p className="hero-date">{formatHeroDate(effectiveNow)}</p>
             <h1 className="hero-greeting">Hi, {currentUser.name}!</h1>
             <p className="hero-subtitle">Here’s what you need today.</p>
           </div>
@@ -81,10 +90,11 @@ export function TodayView({
               <span className="up-next-accent-stripe" />
               <div className="up-next-info">
                 <h3 className="up-next-title">
-                  {nextEvent.title} {nextEvent.icon || "⚽"}
+                  {nextEvent.title} <EventIcon icon={nextEvent.icon} category={nextEvent.category} size={20} />
                 </h3>
                 <p className="up-next-meta">
-                  Today · {nextEvent.start ? formatTime(nextEvent.start) : "17:00"} ·{" "}
+                  {nextEvent.start ? formatDayLabel(nextEvent.start, effectiveNow) : "Today"} ·{" "}
+                  {nextEvent.start ? formatTime(nextEvent.start) : "17:00"} ·{" "}
                   {nextEvent.location || "Belvedere"}
                 </p>
               </div>
@@ -105,19 +115,9 @@ export function TodayView({
           aria-label="See my week"
         >
           <div className="btn-icon-label">
-            {/* Custom Mint Outline Calendar Icon matching Image 1 */}
+            {/* Icon-pack calendar badge */}
             <span className="mint-cal-icon-wrap">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="4" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-                <circle cx="8" cy="14" r="1" fill="currentColor" />
-                <circle cx="12" cy="14" r="1" fill="currentColor" />
-                <circle cx="16" cy="14" r="1" fill="currentColor" />
-                <circle cx="8" cy="18" r="1" fill="currentColor" />
-                <circle cx="12" cy="18" r="1" fill="currentColor" />
-              </svg>
+              <img src="/icon_pack/nav_calendar.png" alt="" width={32} height={32} />
             </span>
             <span className="btn-text">See my week</span>
           </div>
@@ -207,5 +207,28 @@ function formatTime(iso: string) {
     }).format(d);
   } catch {
     return "17:00";
+  }
+}
+
+function formatDayLabel(iso: string, now: Date) {
+  try {
+    const d = new Date(iso);
+    const sameDay =
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate();
+    if (sameDay) return "Today";
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow =
+      d.getFullYear() === tomorrow.getFullYear() &&
+      d.getMonth() === tomorrow.getMonth() &&
+      d.getDate() === tomorrow.getDate();
+    if (isTomorrow) return "Tomorrow";
+
+    return new Intl.DateTimeFormat("en-IE", { weekday: "short", day: "numeric" }).format(d);
+  } catch {
+    return "Today";
   }
 }

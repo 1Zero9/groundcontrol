@@ -15,6 +15,9 @@ import {
 import type { Event, BoardItem, FamilyMember } from "../../src/core/models";
 import { RocketMark, PushPin } from "./cosmic-illustrations";
 import { MemberAvatarContent } from "./member-avatar";
+import { EventIcon } from "./event-icon";
+import { toISODate, formatHeroDate } from "../../src/core/date-utils";
+import { useNow } from "../../src/core/use-now";
 
 interface KitchenDisplayViewProps {
   family: FamilyMember[];
@@ -54,8 +57,12 @@ export function KitchenDisplayView({
     return () => clearInterval(interval);
   }, []);
 
-  const todayEvents = events.filter((e) => e.start.startsWith("2026-08-26"));
-  const upcomingEvents = events.filter((e) => e.start > "2026-08-26T23:59");
+  const now = useNow(60000);
+  const effectiveNow = now ?? new Date(2026, 7, 26);
+  const todayIso = toISODate(effectiveNow);
+
+  const todayEvents = events.filter((e) => e.start.startsWith(todayIso));
+  const upcomingEvents = events.filter((e) => e.start > `${todayIso}T23:59`);
 
   return (
     <div className="kitchen-display-container">
@@ -148,7 +155,7 @@ export function KitchenDisplayView({
         <header className="kitchen-top-header">
           <div className="kitchen-greeting-block">
             <h1 className="kitchen-greeting">Good evening! 👋</h1>
-            <p className="kitchen-date-sub">Wednesday · 26 August</p>
+            <p className="kitchen-date-sub">{formatHeroDate(effectiveNow)}</p>
           </div>
 
           <div className="kitchen-clock-card">
@@ -185,7 +192,9 @@ export function KitchenDisplayView({
                         {evt.location || "Home"}
                       </p>
                     </div>
-                    <span className="kitchen-event-icon">{evt.icon || "⚽"}</span>
+                    <span className="kitchen-event-icon">
+                      <EventIcon icon={evt.icon} category={evt.category} size={22} />
+                    </span>
                   </article>
                 );
               })}

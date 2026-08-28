@@ -6,6 +6,7 @@ import type { Event, BoardItem, FamilyMember } from "../../src/core/models";
 import type { CustomService } from "../../db/custom-services-queries";
 import { CategoryBadge } from "./cosmic-illustrations";
 import { MemberAvatarContent } from "./member-avatar";
+import { toISODate } from "../../src/core/date-utils";
 
 interface AddModalProps {
   isOpen: boolean;
@@ -29,7 +30,7 @@ export function AddModal({
   const [categoryType, setCategoryType] = useState<"event" | "task" | "note" | "reminder">("event");
   const [text, setText] = useState("");
   const [location, setLocation] = useState("Belvedere");
-  const [date, setDate] = useState("2026-08-26");
+  const [date, setDate] = useState(() => toISODate(new Date()));
   const [time, setTime] = useState("17:00");
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([currentUser.id]);
   const [hasReminder, setHasReminder] = useState(true);

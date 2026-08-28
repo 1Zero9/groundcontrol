@@ -1,18 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
-import { Plus } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Event, FamilyMember } from "../../src/core/models";
+import { EventIcon } from "./event-icon";
+import { useNow } from "../../src/core/use-now";
+import { getWeekDays, toISODate } from "../../src/core/date-utils";
 
-const weekDays = [
-  { dayName: "Mon", dateNum: "24", iso: "2026-08-24", dotColor: "#6C7E90" },
-  { dayName: "Tue", dateNum: "25", iso: "2026-08-25", dotColor: "#22C1A2" },
-  { dayName: "Wed", dateNum: "26", iso: "2026-08-26", dotColor: "#6C4DFF" },
-  { dayName: "Thu", dateNum: "27", iso: "2026-08-27", dotColor: "#22C1A2" },
-  { dayName: "Fri", dateNum: "28", iso: "2026-08-28", dotColor: "#6C4DFF" },
-  { dayName: "Sat", dateNum: "29", iso: "2026-08-29", dotColor: "#22C1A2" },
-  { dayName: "Sun", dateNum: "30", iso: "2026-08-30", dotColor: "#FF5CA8" },
-];
+const FALLBACK_TODAY = new Date(2026, 7, 26);
 
 interface WeekViewProps {
   currentUser: FamilyMember;
@@ -29,8 +24,51 @@ export function WeekView({
   onOpenAdd,
   onSelectEvent,
 }: WeekViewProps) {
-  const [selectedDay, setSelectedDay] = useState("2026-08-26");
+  const now = useNow();
+  const today = now ?? FALLBACK_TODAY;
+  const todayIso = toISODate(today);
+
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<string>("all");
+
+  const referenceDate = useMemo(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + weekOffset * 7);
+    return d;
+  }, [today, weekOffset]);
+
+  const weekDays = useMemo(() => getWeekDays(referenceDate, today), [referenceDate, today]);
+
+  const effectiveSelectedDay = selectedDay ?? todayIso;
+
+  // Navigate to a different week, defaulting the selected day to today (if
+  // that week contains today) or the Monday of that week otherwise.
+  const goToWeek = (offset: number) => {
+    setWeekOffset(offset);
+    if (offset === 0) {
+      setSelectedDay(todayIso);
+    } else {
+      const ref = new Date(today);
+      ref.setDate(ref.getDate() + offset * 7);
+      const days = getWeekDays(ref, today);
+      setSelectedDay(days[0]?.iso ?? null);
+    }
+  };
+
+  const weekRangeLabel = useMemo(() => {
+    const first = weekDays[0];
+    const last = weekDays[6];
+    if (!first || !last) return "";
+    const monday = new Date(referenceDate);
+    monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
+    const sunday = new Date(monday);
+    sunday.setDate(monday.getDate() + 6);
+    const monthFmt = (d: Date) => new Intl.DateTimeFormat("en-IE", { month: "short" }).format(d);
+    return monthFmt(monday) === monthFmt(sunday)
+      ? first.dateNum + "-" + last.dateNum + " " + monthFmt(monday)
+      : first.dateNum + " " + monthFmt(monday) + " - " + last.dateNum + " " + monthFmt(sunday);
+  }, [weekDays, referenceDate]);
 
   // Filter events by person and day
   const filteredEvents = events.filter((evt) => {
@@ -38,7 +76,7 @@ export function WeekView({
       selectedPersonId === "all"
         ? true
         : evt.personIds.includes(selectedPersonId);
-    const matchesDay = selectedDay ? evt.start.startsWith(selectedDay) : true;
+    const matchesDay = evt.start.startsWith(effectiveSelectedDay);
     return matchesPerson && matchesDay;
   });
 
@@ -93,11 +131,37 @@ export function WeekView({
         </div>
       </div>
 
-      {/* Week Day Strip (Mon 24 - Sun 30) */}
+      {/* Week Day Strip with prev/next navigation */}
       <div className="week-day-strip-container">
+        <div className="week-nav-row">
+          <button
+            type="button"
+            className="week-nav-btn"
+            onClick={() => goToWeek(weekOffset - 1)}
+            aria-label="Previous week"
+          >
+            <ChevronLeft size={18} strokeWidth={2.5} />
+          </button>
+          <button
+            type="button"
+            className="week-nav-label"
+            onClick={() => goToWeek(0)}
+            title={weekOffset !== 0 ? "Jump back to this week" : undefined}
+          >
+            {weekOffset === 0 ? "This week" : weekRangeLabel}
+          </button>
+          <button
+            type="button"
+            className="week-nav-btn"
+            onClick={() => goToWeek(weekOffset + 1)}
+            aria-label="Next week"
+          >
+            <ChevronRight size={18} strokeWidth={2.5} />
+          </button>
+        </div>
         <div className="week-day-strip" role="tablist">
           {weekDays.map((d) => {
-            const isSelected = selectedDay === d.iso;
+            const isSelected = effectiveSelectedDay === d.iso;
             return (
               <button
                 key={d.iso}
@@ -108,7 +172,7 @@ export function WeekView({
                 onClick={() => setSelectedDay(d.iso)}
               >
                 <span className="day-name-label">{d.dayName}</span>
-                <div className="day-num-bubble">
+                <div className={`day-num-bubble ${d.isToday && !isSelected ? "is-today" : ""}`}>
                   <span>{d.dateNum}</span>
                 </div>
                 <span
@@ -179,8 +243,8 @@ export function WeekView({
 
                   {/* Right Category Icon */}
                   <div className="timeline-icon-col">
-                    <span className="category-emoji-badge" aria-hidden="true">
-                      {evt.icon || getCategoryIcon(evt.category)}
+                    <span className="category-emoji-badge">
+                      <EventIcon icon={evt.icon} category={evt.category} size={22} />
                     </span>
                   </div>
                 </article>
@@ -213,24 +277,5 @@ function formatTime(iso: string) {
     }).format(d);
   } catch {
     return "17:00";
-  }
-}
-
-function getCategoryIcon(cat: string) {
-  switch (cat) {
-    case "sports":
-      return "⚽";
-    case "family":
-      return "💖";
-    case "school":
-      return "🚌";
-    case "appointment":
-      return "🦷";
-    case "college":
-      return "🎓";
-    case "work":
-      return "💼";
-    default:
-      return "🗓️";
   }
 }
