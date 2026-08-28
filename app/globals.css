@@ -2311,6 +2311,106 @@ input, textarea, select {
   color: var(--pink);
 }
 
+.custom-service-delete-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--paper);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.custom-service-delete-btn:hover {
+  background: var(--pink);
+  color: #fff;
+}
+
+.add-service-form {
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.add-service-input {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 13px;
+  font-family: var(--font-sans);
+}
+
+.add-service-input:focus {
+  outline: none;
+  border-color: var(--purple);
+}
+
+.add-service-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 16px;
+  border-radius: 14px;
+  border: none;
+  background: var(--purple);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+.add-service-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.add-service-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.discover-feeds-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.discover-feed-btn {
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.discover-feed-btn.selected {
+  border-color: var(--purple);
+  background: var(--purple-soft);
+  color: var(--purple);
+  font-weight: 600;
+}
+
 .spin {
   animation: spin 1s linear infinite;
 }
@@ -2416,6 +2516,110 @@ input, textarea, select {
   font-size: 12px;
   color: var(--muted);
   margin-top: 2px;
+}
+
+.admin-family-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-family-header-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.admin-rename-trigger-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: var(--paper);
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.admin-rename-trigger-btn:hover {
+  background: var(--purple-soft);
+  color: var(--purple);
+}
+
+.admin-rename-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-rename-form .add-service-input {
+  width: 200px;
+}
+
+.admin-reset-login-trigger-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.admin-reset-login-trigger-btn:hover {
+  color: var(--purple);
+  border-color: var(--purple);
+}
+
+.admin-reset-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  min-width: 220px;
+}
+
+.admin-reset-login-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.admin-reset-login-cancel-btn {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 9px 10px;
+}
+
+.admin-reset-login-cancel-btn:hover {
+  color: var(--ink);
+}
+
+.admin-custom-services-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.admin-custom-services-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 10px;
 }
 
 /* ==========================================================================

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, Calendar, Clock, MapPin, Bell } from "lucide-react";
 import type { Event, BoardItem, FamilyMember } from "../../src/core/models";
+import type { CustomService } from "../../db/custom-services-queries";
 import { CategoryBadge } from "./cosmic-illustrations";
 
 interface AddModalProps {
@@ -10,6 +11,7 @@ interface AddModalProps {
   onClose: () => void;
   currentUser: FamilyMember;
   family: FamilyMember[];
+  customServices: CustomService[];
   onSaveEvent: (event: Event) => void;
   onSaveBoardItem: (item: BoardItem) => void;
 }
@@ -19,6 +21,7 @@ export function AddModal({
   onClose,
   currentUser,
   family,
+  customServices,
   onSaveEvent,
   onSaveBoardItem,
 }: AddModalProps) {
@@ -29,6 +32,7 @@ export function AddModal({
   const [time, setTime] = useState("17:00");
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([currentUser.id]);
   const [hasReminder, setHasReminder] = useState(true);
+  const [customServiceId, setCustomServiceId] = useState<string>("");
 
   if (!isOpen) return null;
 
@@ -58,6 +62,7 @@ export function AddModal({
         icon: text.toLowerCase().includes("football") ? "⚽" : text.toLowerCase().includes("dinner") ? "💖" : text.toLowerCase().includes("school") ? "🚌" : "🗓️",
         accentColor: "#6C4DFF",
         source: "User",
+        customServiceId: customServiceId || undefined,
       };
       onSaveEvent(newEvent);
     } else {
@@ -70,11 +75,13 @@ export function AddModal({
         pinned: categoryType === "note",
         badge: categoryType === "task" ? "✓" : categoryType === "reminder" ? "🔔" : "📌",
         color: categoryType === "task" ? "#E6FAF4" : categoryType === "note" ? "#FFF4D2" : "#FFF0F5",
+        customServiceId: customServiceId || undefined,
       };
       onSaveBoardItem(newBoard);
     }
 
     setText("");
+    setCustomServiceId("");
     onClose();
   };
 
@@ -195,6 +202,28 @@ export function AddModal({
                 className="sheet-sub-input"
                 aria-label="Location"
               />
+            </div>
+          )}
+
+          {/* Tag to one of the family's custom services, if any exist */}
+          {customServices.length > 0 && (
+            <div className="form-field-group">
+              <label htmlFor="custom-service-select" className="whos-it-for-label">
+                Part of a service?
+              </label>
+              <select
+                id="custom-service-select"
+                className="sheet-sub-input"
+                value={customServiceId}
+                onChange={(e) => setCustomServiceId(e.target.value)}
+              >
+                <option value="">None</option>
+                {customServices.map((service) => (
+                  <option key={service.id} value={service.id}>
+                    {service.name}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 

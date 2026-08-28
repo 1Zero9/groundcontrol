@@ -12,6 +12,14 @@ import {
   type NewBoardItemInput,
   type NewEventInput,
 } from "../db/queries";
+import {
+  createCustomService,
+  deleteCustomService,
+  setCustomServiceFeedUrl,
+  syncCustomServiceFeed,
+  type NewCustomServiceInput,
+} from "../db/custom-services-queries";
+import { discoverCalendarFeeds } from "../src/core/calendar-discovery";
 
 export async function createEventAction(input: NewEventInput) {
   const event = await createEvent(input);
@@ -58,4 +66,34 @@ export async function syncModuleFeedAction(familyId: string, moduleKey: string) 
   const result = await syncModuleFeed(familyId, moduleKey);
   revalidatePath("/");
   return result;
+}
+
+export async function createCustomServiceAction(input: NewCustomServiceInput) {
+  const service = await createCustomService(input);
+  revalidatePath("/");
+  return service;
+}
+
+export async function deleteCustomServiceAction(id: string, familyId: string) {
+  await deleteCustomService(id, familyId);
+  revalidatePath("/");
+}
+
+export async function setCustomServiceFeedUrlAction(
+  id: string,
+  familyId: string,
+  feedUrl: string
+) {
+  await setCustomServiceFeedUrl(id, familyId, feedUrl);
+  revalidatePath("/");
+}
+
+export async function syncCustomServiceFeedAction(familyId: string, serviceId: string) {
+  const result = await syncCustomServiceFeed(familyId, serviceId);
+  revalidatePath("/");
+  return result;
+}
+
+export async function discoverCalendarFeedsAction(pageUrl: string) {
+  return discoverCalendarFeeds(pageUrl);
 }

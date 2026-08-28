@@ -13,6 +13,7 @@ import {
   Sun,
 } from "lucide-react";
 import type { BoardItem, Event, FamilyMember, GroundControlModule } from "../../src/core/models";
+import type { CustomService } from "../../db/custom-services-queries";
 import { TodayView } from "./today-view";
 import { WeekView } from "./week-view";
 import { RememberBoardView } from "./remember-board-view";
@@ -22,10 +23,15 @@ import { KitchenDisplayView } from "./kitchen-display-view";
 import { AddModal } from "./add-modal";
 import {
   createBoardItemAction,
+  createCustomServiceAction,
   createEventAction,
+  deleteCustomServiceAction,
+  discoverCalendarFeedsAction,
   removeBoardItemAction,
   saveModuleFeedUrlAction,
+  setCustomServiceFeedUrlAction,
   setFamilyModuleEnabledAction,
+  syncCustomServiceFeedAction,
   syncModuleFeedAction,
   toggleBoardItemAction,
 } from "../actions";
@@ -36,6 +42,7 @@ interface GroundControlAppProps {
   events: Event[];
   initialBoard: BoardItem[];
   initialModules: GroundControlModule[];
+  initialCustomServices: CustomService[];
 }
 
 type TabView = "today" | "week" | "remember" | "profile" | "modules";
@@ -47,6 +54,7 @@ export function GroundControlApp({
   events: initialEvents,
   initialBoard,
   initialModules,
+  initialCustomServices,
 }: GroundControlAppProps) {
   const [activeTab, setActiveTab] = useState<TabView>("today");
   const [displayMode, setDisplayMode] = useState<DisplayMode>("mobile");
@@ -55,6 +63,7 @@ export function GroundControlApp({
   const [events, setEvents] = useState<Event[]>(initialEvents);
   const [board, setBoard] = useState<BoardItem[]>(initialBoard);
   const [modules, setModules] = useState<GroundControlModule[]>(initialModules);
+  const [customServices, setCustomServices] = useState<CustomService[]>(initialCustomServices);
   const [isAddOpen, setIsAddOpen] = useState(false);
 
   // Register service worker if available
@@ -84,6 +93,7 @@ export function GroundControlApp({
         icon: draft.icon,
         accentColor: draft.accentColor,
         source: draft.source,
+        customServiceId: draft.customServiceId,
       });
       setEvents((prev) => prev.map((e) => (e.id === optimisticId ? saved : e)));
     } catch (err) {
@@ -104,6 +114,7 @@ export function GroundControlApp({
         pinned: draft.pinned,
         badge: draft.badge,
         color: draft.color,
+        customServiceId: draft.customServiceId,
       });
       setBoard((prev) => prev.map((b) => (b.id === optimisticId ? saved : b)));
     } catch (err) {
@@ -173,6 +184,54 @@ export function GroundControlApp({
       )
     );
     return result;
+  };
+
+  const handleAddCustomService = async (input: {
+    name: string;
+    icon?: string;
+    colour?: string;
+    feedUrl?: string;
+  }) => {
+    const created = await createCustomServiceAction({ familyId, ...input });
+    setCustomServices((prev) => [...prev, created]);
+    return created;
+  };
+
+  const handleDeleteCustomService = async (id: string) => {
+    const previous = customServices;
+    setCustomServices((prev) => prev.filter((s) => s.id !== id));
+    try {
+      await deleteCustomServiceAction(id, familyId);
+    } catch (err) {
+      console.error("Failed to delete custom service", err);
+      setCustomServices(previous);
+    }
+  };
+
+  const handleSaveCustomServiceFeedUrl = async (id: string, feedUrl: string) => {
+    await setCustomServiceFeedUrlAction(id, familyId, feedUrl);
+    setCustomServices((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, feedUrl } : s))
+    );
+  };
+
+  const handleSyncCustomServiceFeed = async (id: string) => {
+    const result = await syncCustomServiceFeedAction(familyId, id);
+    setEvents((prev) => {
+      const byId = new Map(prev.map((e) => [e.id, e]));
+      for (const synced of result.events) {
+        byId.set(synced.id, synced);
+      }
+      return Array.from(byId.values());
+    });
+    setCustomServices((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, lastSyncedAt: result.lastSyncedAt } : s))
+    );
+    return result;
+  };
+
+  const handleDiscoverCalendarFeeds = async (pageUrl: string) => {
+    return discoverCalendarFeedsAction(pageUrl);
   };
 
   return (
@@ -331,6 +390,12 @@ export function GroundControlApp({
                   onSaveFeedUrl={handleSaveModuleFeedUrl}
                   onSyncFeed={handleSyncModuleFeed}
                   onBack={() => setActiveTab("profile")}
+                  customServices={customServices}
+                  onAddCustomService={handleAddCustomService}
+                  onDeleteCustomService={handleDeleteCustomService}
+                  onSaveCustomServiceFeedUrl={handleSaveCustomServiceFeedUrl}
+                  onSyncCustomServiceFeed={handleSyncCustomServiceFeed}
+                  onDiscoverCalendarFeeds={handleDiscoverCalendarFeeds}
                 />
               )}
             </main>
@@ -386,6 +451,7 @@ export function GroundControlApp({
         onClose={() => setIsAddOpen(false)}
         currentUser={currentUser}
         family={family}
+        customServices={customServices}
         onSaveEvent={handleSaveEvent}
         onSaveBoardItem={handleSaveBoardItem}
       />

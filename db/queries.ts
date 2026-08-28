@@ -3,6 +3,7 @@ import { getDb } from "./index";
 import { boardItems, events, familyMembers, familyModules, families, modules } from "./schema";
 import { moduleRegistry } from "../src/core/module-registry";
 import { parseIcalFeed } from "../src/core/connectors";
+import { listCustomServices } from "./custom-services-queries";
 import type { BoardItem, Event, FamilyMember, GroundControlModule } from "../src/core/models";
 
 type MemberRow = typeof familyMembers.$inferSelect;
@@ -27,6 +28,7 @@ function mapEvent(row: EventRow, moduleKey?: string | null): Event {
     id: row.id,
     familyId: row.familyId,
     moduleKey: moduleKey ?? undefined,
+    customServiceId: row.customServiceId ?? undefined,
     title: row.title,
     description: row.description ?? undefined,
     start: row.start.toISOString(),
@@ -49,6 +51,7 @@ function mapBoardItem(row: BoardItemRow, moduleKey?: string | null): BoardItem {
     id: row.id,
     familyId: row.familyId,
     moduleKey: moduleKey ?? undefined,
+    customServiceId: row.customServiceId ?? undefined,
     text: row.text,
     subtitle: row.subtitle ?? undefined,
     type: row.type,
@@ -97,7 +100,7 @@ export async function getDefaultFamilyId(): Promise<string> {
 export async function getFamilyBundle(familyId: string) {
   const db = getDb();
 
-  const [memberRows, eventRows, boardRows] = await Promise.all([
+  const [memberRows, eventRows, boardRows, customServices] = await Promise.all([
     db
       .select()
       .from(familyMembers)
@@ -115,12 +118,14 @@ export async function getFamilyBundle(familyId: string) {
       .leftJoin(modules, eq(boardItems.moduleId, modules.id))
       .where(eq(boardItems.familyId, familyId))
       .orderBy(desc(boardItems.createdAt)),
+    listCustomServices(familyId),
   ]);
 
   return {
     members: memberRows.map(mapMember),
     events: eventRows.map((r) => mapEvent(r.event, r.moduleKey)),
     boardItems: boardRows.map((r) => mapBoardItem(r.item, r.moduleKey)),
+    customServices,
   };
 }
 
@@ -137,6 +142,7 @@ export type NewEventInput = {
   icon?: string;
   accentColor?: string;
   source?: string;
+  customServiceId?: string;
 };
 
 export async function createEvent(input: NewEventInput): Promise<Event> {
@@ -148,6 +154,7 @@ export async function createEvent(input: NewEventInput): Promise<Event> {
     .values({
       familyId: input.familyId,
       moduleId,
+      customServiceId: input.customServiceId,
       title: input.title,
       description: input.description,
       start: new Date(input.start),
@@ -173,6 +180,7 @@ export type NewBoardItemInput = {
   pinned?: boolean;
   badge?: string;
   color?: string;
+  customServiceId?: string;
 };
 
 export async function createBoardItem(input: NewBoardItemInput): Promise<BoardItem> {
@@ -184,6 +192,7 @@ export async function createBoardItem(input: NewBoardItemInput): Promise<BoardIt
     .values({
       familyId: input.familyId,
       moduleId,
+      customServiceId: input.customServiceId,
       text: input.text,
       type: input.type ?? "note",
       personIds: input.personIds ?? [],

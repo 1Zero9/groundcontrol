@@ -162,6 +162,29 @@ export const familyModules = pgTable(
 );
 
 // ---------------------------------------------------------------------------
+// Custom services (family-defined, ad-hoc — a college schedule, a one-off
+// tournament, anything beyond the fixed code-registry modules above). Unlike
+// `modules`, these are created per-family at runtime, not defined in code.
+// Optionally backed by an iCal/webcal feed (synced the same way as a module's
+// feed); if it has no feed, it's just a label for manually-added events/items.
+// ---------------------------------------------------------------------------
+
+export const customServices = pgTable("custom_services", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  familyId: uuid("family_id")
+    .notNull()
+    .references(() => families.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  icon: text("icon"),
+  colour: text("colour"),
+  feedUrl: text("feed_url"),
+  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
 // Events (generic core entity; modules attach structured `details`)
 // ---------------------------------------------------------------------------
 
@@ -172,6 +195,10 @@ export const events = pgTable("events", {
     .references(() => families.id, { onDelete: "cascade" }),
   // Which module produced this event, if any (null = plain core/manual event).
   moduleId: uuid("module_id").references(() => modules.id, {
+    onDelete: "set null",
+  }),
+  // Which family-defined custom service this event is tagged to, if any.
+  customServiceId: uuid("custom_service_id").references(() => customServices.id, {
     onDelete: "set null",
   }),
   title: text("title").notNull(),
@@ -215,6 +242,9 @@ export const boardItems = pgTable("board_items", {
   moduleId: uuid("module_id").references(() => modules.id, {
     onDelete: "set null",
   }),
+  customServiceId: uuid("custom_service_id").references(() => customServices.id, {
+    onDelete: "set null",
+  }),
   text: text("text").notNull(),
   subtitle: text("subtitle"),
   type: boardItemTypeEnum("type").notNull().default("note"),
@@ -239,9 +269,19 @@ export const boardItems = pgTable("board_items", {
 export const familiesRelations = relations(families, ({ many }) => ({
   members: many(familyMembers),
   modules: many(familyModules),
+  customServices: many(customServices),
   events: many(events),
   boardItems: many(boardItems),
   users: many(users),
+}));
+
+export const customServicesRelations = relations(customServices, ({ one, many }) => ({
+  family: one(families, {
+    fields: [customServices.familyId],
+    references: [families.id],
+  }),
+  events: many(events),
+  boardItems: many(boardItems),
 }));
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -287,6 +327,10 @@ export const eventsRelations = relations(events, ({ one }) => ({
     fields: [events.moduleId],
     references: [modules.id],
   }),
+  customService: one(customServices, {
+    fields: [events.customServiceId],
+    references: [customServices.id],
+  }),
 }));
 
 export const boardItemsRelations = relations(boardItems, ({ one }) => ({
@@ -297,5 +341,9 @@ export const boardItemsRelations = relations(boardItems, ({ one }) => ({
   module: one(modules, {
     fields: [boardItems.moduleId],
     references: [modules.id],
+  }),
+  customService: one(customServices, {
+    fields: [boardItems.customServiceId],
+    references: [customServices.id],
   }),
 }));

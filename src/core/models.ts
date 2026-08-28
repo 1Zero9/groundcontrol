@@ -39,6 +39,8 @@ export type Event = {
   familyId?: string;
   /** Which module (sports/school/life/...) produced this event, if any. */
   moduleKey?: string;
+  /** Which family-defined custom service (see Modules > Your services) this is tagged to, if any. */
+  customServiceId?: string;
   title: string;
   description?: string;
   start: string;
@@ -60,6 +62,7 @@ export type BoardItem = {
   id: string;
   familyId?: string;
   moduleKey?: string;
+  customServiceId?: string;
   text: string;
   subtitle?: string;
   type?: "note" | "task" | "reminder" | "countdown";

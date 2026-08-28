@@ -9,7 +9,7 @@ export default async function Home() {
     redirect("/login");
   }
 
-  const [{ members, events, boardItems }, modules] = await Promise.all([
+  const [{ members, events, boardItems, customServices }, modules] = await Promise.all([
     getFamilyBundle(session.familyId),
     getFamilyModules(session.familyId),
   ]);
@@ -21,6 +21,7 @@ export default async function Home() {
       events={events}
       initialBoard={boardItems}
       initialModules={modules}
+      initialCustomServices={customServices}
     />
   );
 }
