@@ -68,6 +68,12 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   // scrypt-derived hash, format "salt:hash" (see lib/auth/password.ts).
   passwordHash: text("password_hash").notNull(),
+  // Operator/support flag — grants access to the /admin console (manage
+  // connectors/module config for ANY family). Never granted via signup;
+  // set manually (see `npm run admin:promote`). Admin queries deliberately
+  // never expose other families' events/board items — see docs/TECHNICAL.md
+  // §9 "Admin console & data-privacy guarantee".
+  isAdmin: boolean("is_admin").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

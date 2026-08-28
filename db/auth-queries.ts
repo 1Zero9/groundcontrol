@@ -14,6 +14,12 @@ export async function getUserByEmail(email: string) {
   return row ?? null;
 }
 
+export async function getUserById(id: string) {
+  const db = getDb();
+  const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+  return row ?? null;
+}
+
 export type CreateFamilyWithOwnerInput = {
   familyName: string;
   ownerName: string;

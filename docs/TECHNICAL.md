@@ -36,13 +36,17 @@ app/
   actions.ts                 Server Actions for events/board items/modules
   login/page.tsx             Login screen
   signup/page.tsx            Signup screen
+  admin/
+    page.tsx                 /admin console — operator-only, session+role-gated (Server Component)
+    actions.ts                Admin Server Actions (connector config only — see §9)
   components/
     ground-control-app.tsx   Main client shell: tabs, display modes, state, optimistic updates
     today-view.tsx           "Today" tab
     week-view.tsx             "My week" tab
     remember-board-view.tsx  "Remember" (sticky notes / tasks) tab
     profile-view.tsx          "Profile" tab — switch member, logout, manage modules
-    modules-view.tsx          Module marketplace (enable/disable modules)
+    modules-view.tsx          Module marketplace (enable/disable modules, configure connectors)
+    admin-view.tsx             /admin console UI (family list + per-family connector config)
     kitchen-display-view.tsx Kitchen wall-display mode (tablet/TV layout)
     add-modal.tsx              "Add" bottom sheet (event / task / note / reminder)
     cosmic-illustrations.tsx  Decorative SVG illustrations (Saturn, starfield, pushpin, badges)
@@ -51,22 +55,25 @@ app/
 db/
   schema.ts                   Drizzle table definitions + relations
   index.ts                     DB client (pg Pool via drizzle-orm/node-postgres)
-  queries.ts                   Core data-access layer (events, board items, modules)
-  auth-queries.ts              Auth-specific queries (getUserByEmail, createFamilyWithOwner)
+  queries.ts                   Core data-access layer (events, board items, modules, connector sync)
+  auth-queries.ts              Auth-specific queries (getUserByEmail, getUserById, createFamilyWithOwner)
+  admin-queries.ts              Admin-only queries — families/modules/config, NEVER events/board (see §9)
   seed.ts                       Seeds module registry + a demo family/login for local dev
+  promote-admin.ts               One-off script to grant/revoke /admin access (see §9)
 
 lib/
   auth/
     password.ts                scrypt password hashing (Node's built-in crypto)
     session.ts                 Signed HMAC session cookie helpers
     actions.ts                  signupAction / loginAction / logoutAction (Server Actions)
+    admin.ts                    requireAdmin() guard for the /admin console
 
 src/
   core/
     models.ts                   Shared TS types (Family, FamilyMember, Event, BoardItem, GroundControlModule)
     module-registry.ts         The plug-in registry — source of truth for modules' categories/icons/schemas
     modules.ts                  Thin derived list from the registry (legacy/unused display helper)
-    connectors.ts                Stub external data-source connectors (ClubZap, DDSL, iCal) — not yet wired up
+    connectors.ts                Real iCal/webcal feed parser (`parseIcalFeed`) used by Sports/School sync
   data/
     mock-data.ts                 Original static mock data (still used to seed the demo family)
 
@@ -82,14 +89,16 @@ full Drizzle definitions; summary:
 
 - **`families`** — one row per household (`name`, `timezone`).
 - **`users`** — login accounts. **One login per household**, not per family
-  member. Has `familyId`, `email` (unique), `passwordHash`.
+  member. Has `familyId`, `email` (unique), `passwordHash`, `isAdmin`
+  (operator/support flag, default `false` — see [§9](#9-admin-console--data-privacy-guarantee)).
 - **`family_members`** — the people/pets shown in the app (adult/teen/child/pet
   role, colour, avatar, name). `userId` optionally links a member profile to
   the household's login account (marks "this member IS the account holder").
 - **`modules`** — the plug-in registry mirrored in the DB: `key` (matches
   `src/core/module-registry.ts`), `name`, `description`, `icon`, `isCore`.
 - **`family_modules`** — per-family enable/disable state + a `config` jsonb
-  column for future per-module settings (e.g. `{ club: "Belvedere FC" }).
+  column for per-module settings — currently used to store a connector's
+  `{ feedUrl, lastSyncedAt }` (see [§9](#9-admin-console--data-privacy-guarantee)).
   Unique on `(familyId, moduleId)`.
 - **`events`** — generic calendar events. Core fields (title, start/end,
   personIds, category, location, icon, colour) plus a `details` jsonb column
@@ -231,15 +240,32 @@ The app was built in phases; each is a discrete, shippable slice:
    state) and `setFamilyModuleEnabled()` (upsert), exposed via the
    `setFamilyModuleEnabledAction` Server Action. Core modules
    (Planner/Board) are always on and shown locked in the UI.
+4. **Connectors** — real iCal/webcal calendar feed sync for Sports/School
+   modules. `src/core/connectors.ts`'s `parseIcalFeed()` (using `node-ical`)
+   fetches and parses a household's feed URL (ClubZap, DDSL, school
+   calendar exports, or any other iCal/webcal link); `syncModuleFeed()` in
+   `db/queries.ts` upserts events keyed by `(familyId, source=moduleKey,
+   sourceId=iCal UID)` so re-syncing updates rather than duplicates. Feed
+   URL + last-synced-at are stored in `family_modules.config`. Exposed in
+   the Modules screen (`FeedSyncRow` in `modules-view.tsx`) and mirrored in
+   the admin console (§9) so an operator can configure it on a family's
+   behalf.
+5. **Admin console** — a `/admin` route + `isAdmin` flag so an operator can
+   configure connectors for any family without seeing that family's
+   personal data. See [§9](#9-admin-console--data-privacy-guarantee) for
+   the full design and the privacy guarantee this depends on.
 
 Planned but not yet built (roadmap):
-4. Connectors — real data sources feeding events into Sports/School modules
-   (stubs exist in `src/core/connectors.ts`: ClubZap, DDSL, generic iCal).
-5. Kitchen Display polish.
-6. PWA / push notifications (a `manifest.ts` and service-worker
+6. Kitchen Display polish.
+7. PWA / push notifications (a `manifest.ts` and service-worker
    registration already exist as a starting point; see `public/sw.js` and
    the `useEffect` in `ground-control-app.tsx`).
-7. Production hardening (rate limiting, error monitoring, etc).
+8. Production hardening (rate limiting, error monitoring, etc).
+9. More connector types beyond calendar feeds (maps, food/meal planning,
+   college schedules, etc.) — the module registry + `family_modules.config`
+   jsonb pattern is designed to support this without further schema
+   changes; each new connector type is just a new module registry entry +
+   a parser function alongside `parseIcalFeed`.
 
 ---
 
@@ -260,3 +286,56 @@ Planned but not yet built (roadmap):
   (event/task/note/reminder) and does not yet read from
   `module-registry.ts`'s per-module categories — a natural follow-up once
   more modules are connector-backed.
+
+---
+
+## 9. Admin console & data-privacy guarantee
+
+Ground Control is multi-tenant: every household is an isolated `family`. As
+connectors (calendar feeds, and future integrations — maps, food, college
+schedules, etc.) are added, someone needs to be able to configure them on a
+family's behalf (pasting in a feed URL, troubleshooting a sync) without that
+becoming a backdoor into other households' private data. `/admin` is built
+so that's true **by construction**, not just by policy:
+
+### Who can access it
+- `users.isAdmin` (boolean, default `false`) is the only gate. It is **never**
+  settable through signup, login, or any in-app UI — the only way to grant
+  or revoke it is the `npm run admin:promote -- <email> [--revoke]` script
+  (`db/promote-admin.ts`), run directly against the database by whoever
+  operates the deployment.
+- `lib/auth/admin.ts`'s `requireAdmin()` re-reads the `isAdmin` flag from the
+  database on every request (never trusts a cached value in the session
+  cookie), so revoking access takes effect on the very next request — not
+  after a 30-day cookie expires.
+- Non-admins hitting `/admin` are redirected to `/` (not shown a 403), so the
+  route's existence isn't signalled to regular users.
+
+### What the admin console can see and do
+Everything under `/admin` (`app/admin/page.tsx`, `app/admin/actions.ts`,
+`app/components/admin-view.tsx`, `db/admin-queries.ts`) is scoped to exactly
+three things, for **any** family:
+1. Family name, member **names** (for identification — "which household is
+   this"), and the account owner's email.
+2. Which modules (Sports/School/Life/...) are enabled or disabled.
+3. A module's connector config: the feed URL, last-synced timestamp, and a
+   button to trigger a sync (showing only a created/updated **count**, never
+   the synced events' content).
+
+### What it deliberately cannot see
+`db/admin-queries.ts` only ever selects from `families`, `family_members`
+(names only), `users` (email only), `modules`, and `family_modules`. It has
+**no import of, and never queries, the `events` or `board_items` tables** —
+a family's calendar entries, sticky notes, tasks, reminders, and countdowns
+are structurally unreachable from any admin code path, not merely hidden by
+the UI. `adminSyncModuleFeedAction` calls the same `syncModuleFeed()` used by
+the household's own Modules screen, but only returns `{ createdCount,
+updatedCount, lastSyncedAt }` to the client — never the actual event titles/
+locations/times that were synced.
+
+If a future connector type needs to expose more than on/off + a feed URL,
+extend `family_modules.config` and `AdminFamilySummary`/`GroundControlModule`
+the same way this was done for `feedUrl`/`lastSyncedAt` — but any change that
+would let `db/admin-queries.ts` join to `events`/`board_items` (or return
+their contents from an admin action) should be treated as a breaking change
+to this guarantee and called out explicitly in a PR/commit message.
