@@ -2329,9 +2329,36 @@ input, textarea, select {
 .admin-page-header {
   display: flex;
   align-items: flex-start;
+  justify-content: space-between;
   gap: 14px;
   margin-bottom: 28px;
   color: var(--ink);
+}
+
+.admin-page-header-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.admin-logout-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.admin-logout-btn:hover {
+  color: var(--ink);
+  border-color: var(--ink);
 }
 
 .admin-page-title {

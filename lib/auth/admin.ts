@@ -1,24 +1,26 @@
 import { redirect } from "next/navigation";
-import { getUserById } from "../../db/auth-queries";
-import { getSession } from "./session";
+import { getAdminById } from "../../db/admin-auth-queries";
+import { getAdminSession } from "./admin-session";
 
 /**
- * Gate for the /admin console. Loads the *current* `isAdmin` flag from the
- * DB on every call (never trusts the session cookie for this) so revoking
- * admin access takes effect immediately, not just after the 30-day cookie
- * expires. Redirects non-admins to "/" rather than exposing a 403 page that
- * confirms the route exists.
+ * Gate for the /admin console. Checks the completely separate
+ * `gc_admin_session` cookie/`admins` table — NOT the family session or a flag
+ * on `users`. A family login can never satisfy this check, by construction.
+ * Loads the admin row fresh from the DB on every call (never trusts the
+ * session cookie alone) so a deleted admin loses access immediately, not
+ * just after the 12-hour cookie expires. Redirects non-admins to
+ * `/admin/login` rather than exposing a 403 page.
  */
 export async function requireAdmin() {
-  const session = await getSession();
+  const session = await getAdminSession();
   if (!session) {
-    redirect("/login");
+    redirect("/admin/login");
   }
 
-  const user = await getUserById(session.userId);
-  if (!user || !user.isAdmin) {
-    redirect("/");
+  const admin = await getAdminById(session.adminId);
+  if (!admin) {
+    redirect("/admin/login");
   }
 
-  return user;
+  return admin;
 }

@@ -22,6 +22,13 @@
       "when": 1787920135905,
       "tag": "0002_outstanding_alex_power",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787926535382,
+      "tag": "0003_curious_martin_li",
+      "breakpoints": true
     }
   ]
 }

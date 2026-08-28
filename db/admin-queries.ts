@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc } from "drizzle-orm";
 import { getDb } from "./index";
 import { familyMembers, familyModules, families, modules, users } from "./schema";
 import { moduleRegistry } from "../src/core/module-registry";
@@ -79,9 +79,4 @@ export async function listFamiliesForAdmin(): Promise<AdminFamilySummary[]> {
       modules: familyModulesList,
     };
   });
-}
-
-export async function setUserAdminFlag(userId: string, isAdmin: boolean): Promise<void> {
-  const db = getDb();
-  await db.update(users).set({ isAdmin }).where(eq(users.id, userId));
 }

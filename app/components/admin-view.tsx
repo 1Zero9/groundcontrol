@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { RefreshCw, Link as LinkIcon, ShieldCheck } from "lucide-react";
+import { RefreshCw, Link as LinkIcon, ShieldCheck, LogOut } from "lucide-react";
 import type { GroundControlModule } from "../../src/core/models";
 import type { AdminFamilySummary } from "../../db/admin-queries";
 import {
@@ -9,6 +9,7 @@ import {
   adminSetModuleEnabledAction,
   adminSyncModuleFeedAction,
 } from "../admin/actions";
+import { adminLogoutAction } from "../../lib/auth/admin-actions";
 
 interface AdminViewProps {
   families: AdminFamilySummary[];
@@ -136,14 +137,21 @@ export function AdminView({ families }: AdminViewProps) {
   return (
     <div className="admin-page">
       <header className="admin-page-header">
-        <ShieldCheck size={20} />
-        <div>
-          <h1 className="admin-page-title">Ground Control Admin</h1>
-          <p className="admin-page-subtitle">
-            Manage connectors for any household. You cannot see their events, notes, or tasks here
-            — only module on/off state and calendar feed URLs.
-          </p>
+        <div className="admin-page-header-main">
+          <ShieldCheck size={20} />
+          <div>
+            <h1 className="admin-page-title">Ground Control Admin</h1>
+            <p className="admin-page-subtitle">
+              Manage connectors for any household. You cannot see their events, notes, or tasks
+              here — only module on/off state and calendar feed URLs.
+            </p>
+          </div>
         </div>
+        <form action={adminLogoutAction}>
+          <button type="submit" className="admin-logout-btn">
+            <LogOut size={14} /> Log out
+          </button>
+        </form>
       </header>
 
       <div className="admin-family-list">

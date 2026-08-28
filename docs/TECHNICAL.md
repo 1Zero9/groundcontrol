@@ -34,10 +34,11 @@ app/
   layout.tsx                Root layout, fonts, viewport
   manifest.ts                PWA manifest
   actions.ts                 Server Actions for events/board items/modules
-  login/page.tsx             Login screen
-  signup/page.tsx            Signup screen
+  login/page.tsx             Login screen (family)
+  signup/page.tsx            Signup screen (family)
   admin/
-    page.tsx                 /admin console — operator-only, session+role-gated (Server Component)
+    login/page.tsx           /admin/login — separate operator sign-in, not a family login
+    page.tsx                 /admin console — operator-only, gated by its own admin session (Server Component)
     actions.ts                Admin Server Actions (connector config only — see §9)
   components/
     ground-control-app.tsx   Main client shell: tabs, display modes, state, optimistic updates
@@ -57,15 +58,19 @@ db/
   index.ts                     DB client (pg Pool via drizzle-orm/node-postgres)
   queries.ts                   Core data-access layer (events, board items, modules, connector sync)
   auth-queries.ts              Auth-specific queries (getUserByEmail, getUserById, createFamilyWithOwner)
+  admin-auth-queries.ts          Auth queries for the standalone `admins` table (see §9)
   admin-queries.ts              Admin-only queries — families/modules/config, NEVER events/board (see §9)
   seed.ts                       Seeds module registry + a demo family/login for local dev
-  promote-admin.ts               One-off script to grant/revoke /admin access (see §9)
+  create-admin.ts                 One-off script to create an operator login (see §9)
 
 lib/
   auth/
     password.ts                scrypt password hashing (Node's built-in crypto)
-    session.ts                 Signed HMAC session cookie helpers
+    token.ts                    Generic signed-token helper shared by both session types below
+    session.ts                 Family session — signed `gc_session` cookie helpers
     actions.ts                  signupAction / loginAction / logoutAction (Server Actions)
+    admin-session.ts             Admin session — separate signed `gc_admin_session` cookie (see §9)
+    admin-actions.ts             adminLoginAction / adminLogoutAction (Server Actions)
     admin.ts                    requireAdmin() guard for the /admin console
 
 src/
@@ -89,8 +94,12 @@ full Drizzle definitions; summary:
 
 - **`families`** — one row per household (`name`, `timezone`).
 - **`users`** — login accounts. **One login per household**, not per family
-  member. Has `familyId`, `email` (unique), `passwordHash`, `isAdmin`
-  (operator/support flag, default `false` — see [§9](#9-admin-console--data-privacy-guarantee)).
+  member. Has `familyId`, `email` (unique), `passwordHash`. No admin/role
+  concept lives here — a family login can never carry operator power (see
+  [§9](#9-admin-console--data-privacy-guarantee)).
+- **`admins`** — completely standalone operator logins for the `/admin`
+  console. `email` (unique), `passwordHash`. No `familyId`, no link to
+  `users` at all — see [§9](#9-admin-console--data-privacy-guarantee).
 - **`family_members`** — the people/pets shown in the app (adult/teen/child/pet
   role, colour, avatar, name). `userId` optionally links a member profile to
   the household's login account (marks "this member IS the account holder").
@@ -250,7 +259,9 @@ The app was built in phases; each is a discrete, shippable slice:
    the Modules screen (`FeedSyncRow` in `modules-view.tsx`) and mirrored in
    the admin console (§9) so an operator can configure it on a family's
    behalf.
-5. **Admin console** — a `/admin` route + `isAdmin` flag so an operator can
+5. **Admin console** — a `/admin` route, gated by its own completely
+   separate operator login (`admins` table + `gc_admin_session` cookie,
+   nothing to do with any family's `users` row), so an operator can
    configure connectors for any family without seeing that family's
    personal data. See [§9](#9-admin-console--data-privacy-guarantee) for
    the full design and the privacy guarantee this depends on.
@@ -296,20 +307,43 @@ connectors (calendar feeds, and future integrations — maps, food, college
 schedules, etc.) are added, someone needs to be able to configure them on a
 family's behalf (pasting in a feed URL, troubleshooting a sync) without that
 becoming a backdoor into other households' private data. `/admin` is built
-so that's true **by construction**, not just by policy:
+so that's true **by construction**, not just by policy — and admin identity
+is **completely separate** from any family's login, not a special power
+layered on top of one.
+
+### Admin identity is not a family login
+There is no such thing as "a family user who is also an admin":
+- Admin logins live in their own `admins` table (`db/schema.ts`) — `email` +
+  `passwordHash` only. It has **no `familyId` column and no relationship to
+  `users`/`families` at all.**
+- The `/admin/login` screen (`app/admin/login/page.tsx`,
+  `lib/auth/admin-actions.ts`'s `adminLoginAction`) is a completely separate
+  sign-in flow from `/login`. Signing in there sets a distinct cookie,
+  `gc_admin_session` (`lib/auth/admin-session.ts`), never the family
+  `gc_session` cookie — the two sessions share only the underlying HMAC
+  signing helper (`lib/auth/token.ts`) to avoid duplicating crypto code, not
+  the payload shape, cookie name, or lifetime (12 hours for admin sessions
+  vs. 30 days for family sessions).
+- Your own family account (e.g. the demo `dad@example.com` login) is an
+  ordinary row in `users` like any other household's — it cannot be
+  "promoted" to admin, and has no `isAdmin`-style flag to flip. Operating
+  the deployment and being a household using the app are two entirely
+  unrelated identities.
 
 ### Who can access it
-- `users.isAdmin` (boolean, default `false`) is the only gate. It is **never**
-  settable through signup, login, or any in-app UI — the only way to grant
-  or revoke it is the `npm run admin:promote -- <email> [--revoke]` script
-  (`db/promote-admin.ts`), run directly against the database by whoever
-  operates the deployment.
-- `lib/auth/admin.ts`'s `requireAdmin()` re-reads the `isAdmin` flag from the
-  database on every request (never trusts a cached value in the session
-  cookie), so revoking access takes effect on the very next request — not
-  after a 30-day cookie expires.
-- Non-admins hitting `/admin` are redirected to `/` (not shown a 403), so the
-  route's existence isn't signalled to regular users.
+- `lib/auth/admin.ts`'s `requireAdmin()` checks the `gc_admin_session` cookie
+  against the `admins` table — never the family session, never `users`.
+- Admin accounts are **never** created through signup or any in-app UI — the
+  only way to create one is `npm run admin:create -- <email> "<password>"`
+  (`db/create-admin.ts`), run directly by whoever operates the deployment.
+  There is deliberately no `--promote` path from an existing family login.
+- `requireAdmin()` re-reads the admin row from the database on every request
+  (never trusts the cookie payload alone), so deleting an admin account
+  revokes access on the very next request — not after the session expires.
+- Non-admins hitting `/admin` are redirected to `/admin/login` (not shown a
+  403), so the route's existence isn't signalled to regular users.
+- The admin console has its own logout button (`adminLogoutAction`),
+  independent of the family "log out" in Profile.
 
 ### What the admin console can see and do
 Everything under `/admin` (`app/admin/page.tsx`, `app/admin/actions.ts`,

@@ -68,12 +68,28 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   // scrypt-derived hash, format "salt:hash" (see lib/auth/password.ts).
   passwordHash: text("password_hash").notNull(),
-  // Operator/support flag — grants access to the /admin console (manage
-  // connectors/module config for ANY family). Never granted via signup;
-  // set manually (see `npm run admin:promote`). Admin queries deliberately
-  // never expose other families' events/board items — see docs/TECHNICAL.md
-  // §9 "Admin console & data-privacy guarantee".
-  isAdmin: boolean("is_admin").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// Admins (operator/support logins — completely separate from family users)
+// ---------------------------------------------------------------------------
+
+/**
+ * Standalone operator identity for the /admin console. Deliberately has NO
+ * relationship to `families`/`users` at all — a family login can never carry
+ * admin rights, and an admin login can never act as a family. Created only
+ * via `npm run admin:create` (see `db/create-admin.ts`), never via signup or
+ * any in-app UI. See docs/TECHNICAL.md §9 "Admin console & data-privacy
+ * guarantee".
+ */
+export const admins = pgTable("admins", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  email: text("email").notNull().unique(),
+  // scrypt-derived hash, format "salt:hash" (see lib/auth/password.ts).
+  passwordHash: text("password_hash").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
