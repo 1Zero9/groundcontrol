@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Blocks, Check, ShieldCheck, User, Sparkles, LogOut } from "lucide-react";
+import { Blocks, Check, ShieldCheck, User, Sparkles, LogOut, LayoutDashboard, Moon, Sun } from "lucide-react";
 import type { FamilyMember, Event, BoardItem } from "../../src/core/models";
 import { logoutAction } from "../../lib/auth/actions";
 import { SiteFooter } from "./site-footer";
@@ -14,6 +14,9 @@ interface ProfileViewProps {
   board: BoardItem[];
   onOpenAdd: () => void;
   onOpenModules: () => void;
+  onOpenKitchen: () => void;
+  isDarkMode: boolean;
+  onToggleDarkMode: () => void;
 }
 
 export function ProfileView({
@@ -24,6 +27,9 @@ export function ProfileView({
   board,
   onOpenAdd,
   onOpenModules,
+  onOpenKitchen,
+  isDarkMode,
+  onToggleDarkMode,
 }: ProfileViewProps) {
   const userEvents = events.filter((e) => e.personIds.includes(currentUser.id));
   const userNotes = board.filter(
@@ -155,6 +161,26 @@ export function ProfileView({
         >
           <Blocks size={16} />
           Manage modules
+        </button>
+      </div>
+
+      {/* Kitchen display + theme */}
+      <div className="logout-form profile-secondary-actions">
+        <button
+          type="button"
+          className="manage-modules-btn"
+          onClick={onOpenKitchen}
+        >
+          <LayoutDashboard size={16} />
+          Kitchen Display
+        </button>
+        <button
+          type="button"
+          className="manage-modules-btn"
+          onClick={onToggleDarkMode}
+        >
+          {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+          {isDarkMode ? "Switch to light theme" : "Switch to dark theme"}
         </button>
       </div>
 

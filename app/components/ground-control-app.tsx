@@ -1,17 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import {
-  Home,
-  CalendarDays,
-  Plus,
-  User,
-  Menu,
-  Smartphone,
-  LayoutDashboard,
-  Moon,
-  Sun,
-} from "lucide-react";
+import { Home, CalendarDays, Plus, User, Menu } from "lucide-react";
 import type { BoardItem, Event, FamilyMember, GroundControlModule } from "../../src/core/models";
 import type { CustomService } from "../../db/custom-services-queries";
 import { TodayView } from "./today-view";
@@ -45,8 +35,7 @@ interface GroundControlAppProps {
   initialCustomServices: CustomService[];
 }
 
-type TabView = "today" | "week" | "remember" | "profile" | "modules";
-type DisplayMode = "mobile" | "kitchen" | "responsive";
+type TabView = "today" | "week" | "remember" | "profile" | "modules" | "kitchen";
 
 export function GroundControlApp({
   familyId,
@@ -57,7 +46,6 @@ export function GroundControlApp({
   initialCustomServices,
 }: GroundControlAppProps) {
   const [activeTab, setActiveTab] = useState<TabView>("today");
-  const [displayMode, setDisplayMode] = useState<DisplayMode>("mobile");
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(family[0]?.id ?? "");
   const [events, setEvents] = useState<Event[]>(initialEvents);
@@ -238,61 +226,8 @@ export function GroundControlApp({
     <div
       className={`app-viewport-root ${isDarkMode ? "theme-dark" : "theme-light"}`}
     >
-      {/* Top Global Mode Controls Banner */}
-      <header className="global-control-bar">
-        <div className="global-control-left">
-          <span className="brand-dot-pulse" />
-          <span className="global-title">Ground Control System</span>
-        </div>
-
-        <div className="global-control-center">
-          {/* Mode switchers */}
-          <div className="view-mode-pill-group" role="group" aria-label="Display mode">
-            <button
-              type="button"
-              className={`mode-pill-btn ${displayMode === "mobile" ? "active" : ""}`}
-              onClick={() => setDisplayMode("mobile")}
-              title="Mobile Phone View (Image 1)"
-            >
-              <Smartphone size={16} />
-              <span>Mobile Phone</span>
-            </button>
-            <button
-              type="button"
-              className={`mode-pill-btn ${displayMode === "kitchen" ? "active" : ""}`}
-              onClick={() => setDisplayMode("kitchen")}
-              title="Kitchen Wall Display (Image 2)"
-            >
-              <LayoutDashboard size={16} />
-              <span>Kitchen Display</span>
-            </button>
-            <button
-              type="button"
-              className={`mode-pill-btn ${displayMode === "responsive" ? "active" : ""}`}
-              onClick={() => setDisplayMode("responsive")}
-              title="Fluid Full Screen"
-            >
-              <span>Full Screen</span>
-            </button>
-          </div>
-        </div>
-
-        <div className="global-control-right">
-          {/* Dark mode toggle */}
-          <button
-            type="button"
-            className="theme-toggle-btn"
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            aria-label={isDarkMode ? "Switch to light theme" : "Switch to dark theme"}
-            title={isDarkMode ? "Switch to light theme" : "Switch to dark theme"}
-          >
-            {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
-          </button>
-        </div>
-      </header>
-
       {/* Main Content Area */}
-      {displayMode === "kitchen" ? (
+      {activeTab === "kitchen" ? (
         <KitchenDisplayView
           family={family}
           events={events}
@@ -301,13 +236,13 @@ export function GroundControlApp({
           onSelectUser={(u) => {
             setCurrentUserId(u.id);
             setActiveTab("today");
-            setDisplayMode("mobile");
           }}
           onOpenAdd={() => setIsAddOpen(true)}
+          onExit={() => setActiveTab("today")}
         />
       ) : (
-        <div className={`layout-wrapper ${displayMode === "mobile" ? "mobile-frame-mode" : "responsive-mode"}`}>
-          <div className="iphone-device-shell">
+        <div className="app-shell">
+          <div className="app-shell-inner">
             {/* Mobile App Header */}
             <header className="mobile-app-header">
               <button
@@ -380,6 +315,9 @@ export function GroundControlApp({
                   board={board}
                   onOpenAdd={() => setIsAddOpen(true)}
                   onOpenModules={() => setActiveTab("modules")}
+                  onOpenKitchen={() => setActiveTab("kitchen")}
+                  isDarkMode={isDarkMode}
+                  onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
                 />
               )}
 

@@ -10,6 +10,7 @@ import {
   Settings,
   Plus,
   Clock,
+  Smartphone,
 } from "lucide-react";
 import type { Event, BoardItem, FamilyMember } from "../../src/core/models";
 import { RocketMark, PushPin } from "./cosmic-illustrations";
@@ -21,6 +22,7 @@ interface KitchenDisplayViewProps {
   currentUser: FamilyMember;
   onSelectUser: (user: FamilyMember) => void;
   onOpenAdd: () => void;
+  onExit: () => void;
 }
 
 export function KitchenDisplayView({
@@ -30,6 +32,7 @@ export function KitchenDisplayView({
   currentUser,
   onSelectUser,
   onOpenAdd,
+  onExit,
 }: KitchenDisplayViewProps) {
   const [timeStr, setTimeStr] = useState("18:42");
   const [activeTab, setActiveTab] = useState<"today" | "week" | "family" | "reminders" | "notes" | "settings">("today");
@@ -126,6 +129,14 @@ export function KitchenDisplayView({
           >
             <Plus size={18} />
             <span>Add to Board</span>
+          </button>
+          <button
+            type="button"
+            className="kitchen-exit-btn"
+            onClick={onExit}
+          >
+            <Smartphone size={16} />
+            <span>Switch to phone view</span>
           </button>
         </div>
       </aside>

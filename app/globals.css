@@ -89,97 +89,7 @@ input, textarea, select {
 }
 
 /* ==========================================================================
-   GLOBAL TOP SWITCHER BAR
-   ========================================================================== */
-.global-control-bar {
-  position: sticky;
-  top: 0;
-  z-index: 50;
-  height: 52px;
-  background: var(--surface-trans);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 clamp(12px, 3vw, 32px);
-  gap: 16px;
-}
-
-.global-control-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.brand-dot-pulse {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--purple);
-  box-shadow: 0 0 0 3px var(--purple-glow);
-}
-
-.global-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--ink);
-  letter-spacing: -0.2px;
-}
-
-.view-mode-pill-group {
-  display: flex;
-  background: var(--purple-soft);
-  border-radius: 20px;
-  padding: 3px;
-  gap: 2px;
-}
-
-.mode-pill-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px 14px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--muted);
-  transition: all 0.15s ease;
-}
-
-.mode-pill-btn:hover {
-  color: var(--ink);
-}
-
-.mode-pill-btn.active {
-  background: var(--surface);
-  color: var(--purple);
-  box-shadow: 0 2px 8px rgba(108, 77, 255, 0.15);
-}
-
-.global-control-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.theme-toggle-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: var(--purple-soft);
-  color: var(--ink);
-}
-
-.theme-toggle-btn:hover {
-  background: var(--purple);
-  color: #FFFFFF;
-}
-
-/* ==========================================================================
-   IPHONE FRAME & WRAPPER
+   APP SHELL (full-bleed — real device/PWA viewport, no preview chrome)
    ========================================================================== */
 .app-viewport-root {
   min-height: 100vh;
@@ -187,35 +97,17 @@ input, textarea, select {
   flex-direction: column;
 }
 
-.layout-wrapper {
+.app-shell {
   flex: 1;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  padding: 20px 16px 40px;
 }
 
-.mobile-frame-mode .iphone-device-shell {
-  width: 100%;
-  max-width: 412px;
-  min-height: 800px;
-  background: var(--surface);
-  border-radius: 28px;
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-
-.responsive-mode .iphone-device-shell {
+.app-shell-inner {
   width: 100%;
   max-width: 680px;
   min-height: 100vh;
   background: var(--surface);
-  border-radius: 28px;
-  box-shadow: var(--shadow-lg);
-  overflow: hidden;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -1704,6 +1596,26 @@ input, textarea, select {
   box-shadow: 0 4px 16px var(--purple-glow);
 }
 
+.kitchen-exit-btn {
+  width: 100%;
+  margin-top: 8px;
+  background: transparent;
+  color: #A88BFF;
+  padding: 10px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.kitchen-exit-btn:hover {
+  background: #251B4D;
+  color: #FFFFFF;
+}
+
 .kitchen-main-surface {
   flex: 1;
   padding: 28px 32px;
@@ -2133,6 +2045,12 @@ input, textarea, select {
 
 .manage-modules-btn:hover {
   filter: brightness(0.97);
+}
+
+.profile-secondary-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 /* ==========================================================================
