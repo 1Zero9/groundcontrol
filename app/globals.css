@@ -65,6 +65,7 @@
 
 html, body {
   min-height: 100vh;
+  min-height: 100dvh;
   font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   background-color: var(--paper);
   color: var(--ink);
@@ -92,13 +93,15 @@ input, textarea, select {
    APP SHELL (full-bleed — real device/PWA viewport, no preview chrome)
    ========================================================================== */
 .app-viewport-root {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
 }
 
 .app-shell {
   flex: 1;
+  min-height: 0;
   display: flex;
   justify-content: center;
 }
@@ -106,7 +109,7 @@ input, textarea, select {
 .app-shell-inner {
   width: 100%;
   max-width: 680px;
-  min-height: 100vh;
+  min-height: 0;
   background: var(--paper);
   display: flex;
   flex-direction: column;
@@ -174,8 +177,9 @@ input, textarea, select {
 /* Scroll Area */
 .mobile-scrollable-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 8px 18px 84px;
+  padding: 8px 18px calc(84px + env(safe-area-inset-bottom, 0px));
   -webkit-overflow-scrolling: touch;
 }
 
@@ -623,7 +627,7 @@ input, textarea, select {
    ========================================================================== */
 .mobile-bottom-dock {
   position: absolute;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   left: 16px;
   right: 16px;
   height: 64px;
