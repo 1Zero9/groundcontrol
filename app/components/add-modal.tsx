@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { X, Calendar, Clock, MapPin, Bell } from "lucide-react";
+import { X, Calendar, Clock, MapPin, Bell, Trash2 } from "lucide-react";
 import type { Event, BoardItem, FamilyMember, GroundControlModule } from "../../src/core/models";
 import type { CustomService } from "../../db/custom-services-queries";
 import { moduleRegistry } from "../../src/core/module-registry";
@@ -18,6 +18,16 @@ interface AddModalProps {
   customServices: CustomService[];
   onSaveEvent: (event: Event) => void;
   onSaveBoardItem: (item: BoardItem) => void;
+  /** When set, the modal opens in "edit" mode for this existing event instead of creating a new item. */
+  editingEvent?: Event | null;
+  onUpdateEvent?: (id: string, event: Event) => void;
+  onDeleteEvent?: (id: string) => void;
+}
+
+function splitLocalDateTime(iso: string) {
+  const d = new Date(iso);
+  const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return { date: toISODate(d), time };
 }
 
 export function AddModal({
@@ -29,16 +39,27 @@ export function AddModal({
   customServices,
   onSaveEvent,
   onSaveBoardItem,
+  editingEvent,
+  onUpdateEvent,
+  onDeleteEvent,
 }: AddModalProps) {
+  const isEditing = Boolean(editingEvent);
+  // Synced calendar-feed events (e.g. Sports fixtures) carry a sourceId and
+  // are overwritten on the next sync, so they're shown read-only here.
+  const isReadOnly = isEditing && Boolean(editingEvent?.sourceId);
+  const editingStart = editingEvent ? splitLocalDateTime(editingEvent.start) : null;
+
   const [categoryType, setCategoryType] = useState<"event" | "task" | "note" | "reminder">("event");
-  const [text, setText] = useState("");
-  const [location, setLocation] = useState("Belvedere");
-  const [date, setDate] = useState(() => toISODate(new Date()));
-  const [time, setTime] = useState("17:00");
-  const [category, setCategory] = useState("general");
-  const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([currentUser.id]);
+  const [text, setText] = useState(editingEvent?.title ?? "");
+  const [location, setLocation] = useState(editingEvent?.location ?? "Belvedere");
+  const [date, setDate] = useState(() => editingStart?.date ?? toISODate(new Date()));
+  const [time, setTime] = useState(() => editingStart?.time ?? "17:00");
+  const [category, setCategory] = useState(editingEvent?.category ?? "general");
+  const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>(
+    editingEvent?.personIds ?? [currentUser.id]
+  );
   const [hasReminder, setHasReminder] = useState(true);
-  const [customServiceId, setCustomServiceId] = useState<string>("");
+  const [customServiceId, setCustomServiceId] = useState<string>(editingEvent?.customServiceId ?? "");
 
   const availableCategories = useMemo(
     () =>
@@ -67,6 +88,24 @@ export function AddModal({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim()) return;
+
+    if (isEditing && editingEvent) {
+      const updatedEvent: Event = {
+        ...editingEvent,
+        title: text.trim(),
+        start: `${date}T${time}:00`,
+        end: `${date}T${time}:00`,
+        personIds: selectedPersonIds,
+        category,
+        location: location || "Home",
+        icon: selectedCategoryMeta?.icon ?? editingEvent.icon ?? "🗓️",
+        accentColor: selectedCategoryMeta?.color ?? editingEvent.accentColor ?? "#6C4DFF",
+        customServiceId: customServiceId || undefined,
+      };
+      onUpdateEvent?.(editingEvent.id, updatedEvent);
+      onClose();
+      return;
+    }
 
     if (categoryType === "event") {
       const newEvent: Event = {
@@ -120,7 +159,7 @@ export function AddModal({
         {/* Header */}
         <div className="sheet-header">
           <h2 id="add-modal-title" className="sheet-title">
-            Add
+            {isEditing ? (isReadOnly ? "Event details" : "Edit event") : "Add"}
           </h2>
           <button
             type="button"
@@ -132,30 +171,38 @@ export function AddModal({
           </button>
         </div>
 
+        {isReadOnly && (
+          <p className="synced-event-notice">
+            This event is synced from a calendar feed, so it can&apos;t be edited here.
+          </p>
+        )}
+
         <form onSubmit={handleSave} className="add-sheet-form">
           {/* Category Squircles */}
-          <div className="category-squircles-bar">
-            <CategoryBadge
-              type="event"
-              active={categoryType === "event"}
-              onClick={() => setCategoryType("event")}
-            />
-            <CategoryBadge
-              type="task"
-              active={categoryType === "task"}
-              onClick={() => setCategoryType("task")}
-            />
-            <CategoryBadge
-              type="note"
-              active={categoryType === "note"}
-              onClick={() => setCategoryType("note")}
-            />
-            <CategoryBadge
-              type="reminder"
-              active={categoryType === "reminder"}
-              onClick={() => setCategoryType("reminder")}
-            />
-          </div>
+          {!isEditing && (
+            <div className="category-squircles-bar">
+              <CategoryBadge
+                type="event"
+                active={categoryType === "event"}
+                onClick={() => setCategoryType("event")}
+              />
+              <CategoryBadge
+                type="task"
+                active={categoryType === "task"}
+                onClick={() => setCategoryType("task")}
+              />
+              <CategoryBadge
+                type="note"
+                active={categoryType === "note"}
+                onClick={() => setCategoryType("note")}
+              />
+              <CategoryBadge
+                type="reminder"
+                active={categoryType === "reminder"}
+                onClick={() => setCategoryType("reminder")}
+              />
+            </div>
+          )}
 
           {/* Primary Input */}
           <div className="form-field-group">
@@ -168,6 +215,7 @@ export function AddModal({
               className="sheet-primary-input"
               value={text}
               onChange={(e) => setText(e.target.value)}
+              disabled={isReadOnly}
               placeholder={
                 categoryType === "event"
                   ? "e.g., Football training"
@@ -193,6 +241,7 @@ export function AddModal({
                   onChange={(e) => setDate(e.target.value)}
                   className="sheet-sub-input"
                   aria-label="Date"
+                  disabled={isReadOnly}
                 />
               </div>
               <div className="input-with-icon">
@@ -203,6 +252,7 @@ export function AddModal({
                   onChange={(e) => setTime(e.target.value)}
                   className="sheet-sub-input"
                   aria-label="Time"
+                  disabled={isReadOnly}
                 />
               </div>
             </div>
@@ -219,6 +269,7 @@ export function AddModal({
                 placeholder="Location (e.g. Belvedere, Home)"
                 className="sheet-sub-input"
                 aria-label="Location"
+                disabled={isReadOnly}
               />
             </div>
           )}
@@ -234,6 +285,7 @@ export function AddModal({
                 className="sheet-sub-input"
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
+                disabled={isReadOnly}
               >
                 {availableCategories.map((c) => (
                   <option key={c.value} value={c.value}>
@@ -255,6 +307,7 @@ export function AddModal({
                 className="sheet-sub-input"
                 value={customServiceId}
                 onChange={(e) => setCustomServiceId(e.target.value)}
+                disabled={isReadOnly}
               >
                 <option value="">None</option>
                 {customServices.map((service) => (
@@ -280,6 +333,7 @@ export function AddModal({
                       type="button"
                       className={`avatar-pick-btn ${isSelected ? "selected" : ""}`}
                       onClick={() => togglePerson(m.id)}
+                      disabled={isReadOnly}
                     >
                       <span
                         className="avatar-circle-ring"
@@ -301,38 +355,62 @@ export function AddModal({
           </div>
 
           {/* Add Reminder Toggle */}
-          <div className="toggle-row">
-            <div className="toggle-copy">
-              <Bell size={18} className="toggle-icon" />
-              <span>Add reminder</span>
+          {!isEditing && (
+            <div className="toggle-row">
+              <div className="toggle-copy">
+                <Bell size={18} className="toggle-icon" />
+                <span>Add reminder</span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={hasReminder}
+                className={`toggle-switch-pill ${hasReminder ? "on" : "off"}`}
+                onClick={() => setHasReminder(!hasReminder)}
+              >
+                <span className="toggle-switch-thumb" />
+              </button>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={hasReminder}
-              className={`toggle-switch-pill ${hasReminder ? "on" : "off"}`}
-              onClick={() => setHasReminder(!hasReminder)}
-            >
-              <span className="toggle-switch-thumb" />
-            </button>
-          </div>
+          )}
 
           {/* Action Buttons */}
           <div className="sheet-actions-row">
-            <button
-              type="button"
-              className="sheet-cancel-btn"
-              onClick={onClose}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="sheet-add-btn"
-              disabled={!text.trim()}
-            >
-              Add
-            </button>
+            {isEditing && !isReadOnly && (
+              <button
+                type="button"
+                className="sheet-delete-btn"
+                onClick={() => {
+                  if (editingEvent) onDeleteEvent?.(editingEvent.id);
+                  onClose();
+                }}
+                aria-label="Delete event"
+              >
+                <Trash2 size={16} />
+                Delete
+              </button>
+            )}
+            {isReadOnly ? (
+              <button type="button" className="sheet-add-btn" onClick={onClose}>
+                Close
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="sheet-cancel-btn"
+                  onClick={onClose}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="sheet-add-btn"
+                  disabled={!text.trim()}
+                >
+                  {isEditing ? "Save" : "Add"}
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>

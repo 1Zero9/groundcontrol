@@ -337,6 +337,62 @@ export async function createEvent(input: NewEventInput): Promise<Event> {
   return mapEvent(row, moduleKey);
 }
 
+export type UpdateEventInput = {
+  title: string;
+  description?: string;
+  start: string;
+  end?: string;
+  allDay?: boolean;
+  personIds: string[];
+  category: string;
+  location?: string;
+  icon?: string;
+  accentColor?: string;
+  customServiceId?: string;
+};
+
+/**
+ * Updates an existing manually-created event (see EventDetailModal). Since
+ * the category can change, this recomputes moduleKey/moduleId exactly like
+ * createEvent does, so the event's module-visibility filtering stays correct.
+ */
+export async function updateEvent(id: string, input: UpdateEventInput): Promise<Event> {
+  const db = getDb();
+  const moduleKey = getModuleByCategory(input.category)?.key ?? "planner";
+  const moduleId = await getModuleId(moduleKey);
+
+  const [row] = await db
+    .update(events)
+    .set({
+      moduleId,
+      customServiceId: input.customServiceId,
+      title: input.title,
+      description: input.description,
+      start: new Date(input.start),
+      end: input.end ? new Date(input.end) : null,
+      allDay: input.allDay ?? false,
+      category: input.category,
+      personIds: input.personIds,
+      location: input.location,
+      icon: input.icon,
+      accentColor: input.accentColor,
+      updatedAt: new Date(),
+    })
+    .where(eq(events.id, id))
+    .returning();
+
+  if (!row) {
+    throw new Error(`Event ${id} not found`);
+  }
+
+  return mapEvent(row, moduleKey);
+}
+
+export async function deleteEvent(id: string): Promise<void> {
+  const db = getDb();
+  await db.delete(events).where(eq(events.id, id));
+}
+
 export type NewBoardItemInput = {
   familyId: string;
   text: string;

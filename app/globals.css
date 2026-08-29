@@ -1388,6 +1388,29 @@ input, textarea, select {
   margin-top: 8px;
 }
 
+.sheet-delete-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  border-radius: 22px;
+  background: var(--pink-soft);
+  color: var(--pink);
+  font-size: 14px;
+  font-weight: 600;
+  margin-right: auto;
+}
+
+.synced-event-notice {
+  margin: 0 0 4px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
 .sheet-cancel-btn {
   padding: 10px 18px;
   font-size: 14px;

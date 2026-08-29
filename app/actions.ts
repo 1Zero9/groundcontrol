@@ -5,6 +5,7 @@ import {
   createBoardItem,
   createEvent,
   createFamilyMember,
+  deleteEvent,
   removeBoardItem,
   removeDemoData,
   removeModuleFeed,
@@ -14,11 +15,13 @@ import {
   syncModuleFeed,
   toggleBoardItem,
   touchMemberLastSeen,
+  updateEvent,
   updateFamilyMember,
   updateFamilyMemberAvatar,
   type NewBoardItemInput,
   type NewEventInput,
   type NewFamilyMemberInput,
+  type UpdateEventInput,
   type UpdateFamilyMemberInput,
 } from "../db/queries";
 import {
@@ -40,6 +43,17 @@ export async function createEventAction(input: NewEventInput) {
   const event = await createEvent(input);
   revalidatePath("/");
   return event;
+}
+
+export async function updateEventAction(id: string, input: UpdateEventInput) {
+  const event = await updateEvent(id, input);
+  revalidatePath("/");
+  return event;
+}
+
+export async function deleteEventAction(id: string) {
+  await deleteEvent(id);
+  revalidatePath("/");
 }
 
 export async function createFamilyMemberAction(input: NewFamilyMemberInput) {

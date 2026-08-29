@@ -37,6 +37,7 @@ import {
   createEventAction,
   createFamilyMemberAction,
   deleteCustomServiceAction,
+  deleteEventAction,
   discoverCalendarFeedsAction,
   removeBoardItemAction,
   removeDemoDataAction,
@@ -51,6 +52,7 @@ import {
   syncModuleFeedAction,
   toggleBoardItemAction,
   touchMemberLastSeenAction,
+  updateEventAction,
   updateFamilyMemberAction,
   updateFamilyMemberAvatarAction,
 } from "../actions";
@@ -94,6 +96,7 @@ export function GroundControlApp({
   const [customServices, setCustomServices] = useState<CustomService[]>(initialCustomServices);
   const [moduleRequests, setModuleRequests] = useState<ModuleRequest[]>(initialModuleRequests);
   const [isAddOpen, setIsAddOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [invitingMember, setInvitingMember] = useState<FamilyMember | null>(null);
@@ -168,6 +171,41 @@ export function GroundControlApp({
     } catch (err) {
       console.error("Failed to save event", err);
       setEvents((prev) => prev.filter((e) => e.id !== optimisticId));
+    }
+  };
+
+  const handleUpdateEvent = async (id: string, draft: Event) => {
+    const previous = events;
+    setEvents((prev) => prev.map((e) => (e.id === id ? draft : e)));
+    try {
+      const saved = await updateEventAction(id, {
+        title: draft.title,
+        description: draft.description,
+        start: draft.start,
+        end: draft.end,
+        allDay: draft.allDay,
+        personIds: draft.personIds,
+        category: draft.category,
+        location: draft.location,
+        icon: draft.icon,
+        accentColor: draft.accentColor,
+        customServiceId: draft.customServiceId,
+      });
+      setEvents((prev) => prev.map((e) => (e.id === id ? saved : e)));
+    } catch (err) {
+      console.error("Failed to update event", err);
+      setEvents(previous);
+    }
+  };
+
+  const handleDeleteEvent = async (id: string) => {
+    const previous = events;
+    setEvents((prev) => prev.filter((e) => e.id !== id));
+    try {
+      await deleteEventAction(id);
+    } catch (err) {
+      console.error("Failed to delete event", err);
+      setEvents(previous);
     }
   };
 
@@ -505,6 +543,10 @@ export function GroundControlApp({
                   family={family}
                   events={visibleEvents}
                   onOpenAdd={() => setIsAddOpen(true)}
+                  onSelectEvent={(evt) => {
+                    setEditingEvent(evt);
+                    setIsAddOpen(true);
+                  }}
                 />
               )}
 
@@ -736,16 +778,23 @@ export function GroundControlApp({
         </div>
       )}
 
-      {/* Global Add Something Modal */}
+      {/* Global Add Something / Edit Event Modal */}
       <AddModal
+        key={editingEvent?.id ?? "new-event"}
         isOpen={isAddOpen}
-        onClose={() => setIsAddOpen(false)}
+        onClose={() => {
+          setIsAddOpen(false);
+          setEditingEvent(null);
+        }}
         currentUser={currentUser}
         family={family}
         modules={modules}
         customServices={customServices}
         onSaveEvent={handleSaveEvent}
         onSaveBoardItem={handleSaveBoardItem}
+        editingEvent={editingEvent}
+        onUpdateEvent={handleUpdateEvent}
+        onDeleteEvent={handleDeleteEvent}
       />
 
       {/* Add / Edit Family Member Modal */}
