@@ -1,58 +1,106 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import {
-  Blocks,
   Check,
   HelpCircle,
-  Link2,
-  LogOut,
   LayoutDashboard,
+  LogOut,
   Moon,
   Pencil,
   ShieldCheck,
   Sparkles,
   Sun,
   User,
-  UserPlus,
+  Users,
 } from "lucide-react";
-import type { FamilyMember, Event, BoardItem } from "../../src/core/models";
+import type { Event, BoardItem, FamilyMember } from "../../src/core/models";
 import { logoutAction } from "../../lib/auth/actions";
 import { SiteFooter } from "./site-footer";
 import { MemberAvatarContent } from "./member-avatar";
 
 interface ProfileViewProps {
-  family: FamilyMember[];
   currentUser: FamilyMember;
-  onSelectUser: (user: FamilyMember) => void;
   events: Event[];
   board: BoardItem[];
-  onOpenAdd: () => void;
-  onOpenModules: () => void;
-  onOpenKitchen: () => void;
-  onOpenAddMember: () => void;
-  onOpenEditMember: (member: FamilyMember) => void;
-  onOpenInviteMember: (member: FamilyMember) => void;
   onOpenEditAvatar: () => void;
+  onOpenKitchen: () => void;
   onOpenHelp: () => void;
+  onOpenFamilyAdmin: () => void;
+  canManageFamily: boolean;
+  onSaveNickname: (nickname: string) => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
 }
 
+function NicknameEditor({
+  nickname,
+  onSave,
+}: {
+  nickname?: string;
+  onSave: (nickname: string) => void;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [value, setValue] = useState(nickname ?? "");
+
+  const handleSave = () => {
+    onSave(value.trim());
+    setIsEditing(false);
+  };
+
+  if (!isEditing) {
+    return (
+      <button
+        type="button"
+        className="nickname-edit-trigger"
+        onClick={() => {
+          setValue(nickname ?? "");
+          setIsEditing(true);
+        }}
+      >
+        <Pencil size={12} />
+        {nickname ? nickname : "Add a nickname"}
+      </button>
+    );
+  }
+
+  return (
+    <div className="nickname-edit-row">
+      <input
+        type="text"
+        className="nickname-edit-input"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder="Nickname"
+        maxLength={30}
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleSave();
+          if (e.key === "Escape") setIsEditing(false);
+        }}
+      />
+      <button
+        type="button"
+        className="nickname-save-btn"
+        onClick={handleSave}
+        aria-label="Save nickname"
+      >
+        <Check size={14} />
+      </button>
+    </div>
+  );
+}
+
 export function ProfileView({
-  family,
   currentUser,
-  onSelectUser,
   events,
   board,
-  onOpenAdd,
-  onOpenModules,
-  onOpenKitchen,
-  onOpenAddMember,
-  onOpenEditMember,
-  onOpenInviteMember,
   onOpenEditAvatar,
+  onOpenKitchen,
   onOpenHelp,
+  onOpenFamilyAdmin,
+  canManageFamily,
+  onSaveNickname,
   isDarkMode,
   onToggleDarkMode,
 }: ProfileViewProps) {
@@ -60,7 +108,6 @@ export function ProfileView({
   const userNotes = board.filter(
     (b) => !b.personIds || b.personIds.includes(currentUser.id)
   );
-  const canManageFamily = currentUser.role === "adult";
 
   return (
     <div className="screen profile-screen">
@@ -108,133 +155,14 @@ export function ProfileView({
           <p className="user-hero-desc">
             {currentUser.title || "Family Crew Member"}
           </p>
+          <NicknameEditor nickname={currentUser.nickname} onSave={onSaveNickname} />
+          {currentUser.lastSeenAt && (
+            <p className="last-visit-text">
+              Last visit: {new Date(currentUser.lastSeenAt).toLocaleString()}
+            </p>
+          )}
         </div>
       </div>
-
-      {/* Switch Family Profile Section */}
-      <section className="family-members-section">
-        <div className="section-title-row">
-          <div>
-            <h2 className="section-heading-title">Household Crew</h2>
-            <p className="section-heading-sub">
-              Switch active view or see what everyone is up to
-            </p>
-          </div>
-          {canManageFamily && (
-            <button
-              type="button"
-              className="add-member-btn"
-              onClick={onOpenAddMember}
-              aria-label="Add family member"
-            >
-              <UserPlus size={16} />
-              <span>Add</span>
-            </button>
-          )}
-        </div>
-
-        <div className="family-cards-list">
-          {family.map((member) => {
-            const isCurrent = member.id === currentUser.id;
-            const memberEvents = events.filter((e) =>
-              e.personIds.includes(member.id)
-            );
-            const nextEvt = memberEvents[0];
-            const canConnect =
-              canManageFamily && member.role !== "pet" && !member.hasAccount;
-
-            return (
-              <div
-                key={member.id}
-                role="button"
-                tabIndex={0}
-                className={`family-member-card ${isCurrent ? "is-active-member" : ""}`}
-                onClick={() => onSelectUser(member)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onSelectUser(member);
-                  }
-                }}
-              >
-                <div className="member-card-left">
-                  <span
-                    className="member-card-avatar"
-                    style={{ backgroundColor: member.colour }}
-                  >
-                    <MemberAvatarContent avatarValue={member.avatarEmoji} fallback={member.shortName} />
-                  </span>
-                  <div className="member-card-info">
-                    <div className="member-name-row">
-                      <strong className="member-card-name">{member.name}</strong>
-                      {isCurrent && (
-                        <span className="active-now-badge">
-                          <Check size={12} strokeWidth={3} /> Active
-                        </span>
-                      )}
-                    </div>
-                    <span className="member-next-event">
-                      {nextEvt
-                        ? `Next: ${nextEvt.title} (${nextEvt.icon || "⚽"})`
-                        : "No upcoming events"}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="member-card-actions">
-                  {canManageFamily && (
-                    <button
-                      type="button"
-                      className="member-action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenEditMember(member);
-                      }}
-                      aria-label={`Edit ${member.name}`}
-                      title={`Edit ${member.name}`}
-                    >
-                      <Pencil size={13} />
-                    </button>
-                  )}
-
-                  {canConnect && (
-                    <button
-                      type="button"
-                      className="member-action-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenInviteMember(member);
-                      }}
-                      aria-label={`Send login link to ${member.name}`}
-                      title={`Send login link to ${member.name}`}
-                    >
-                      <Link2 size={13} />
-                    </button>
-                  )}
-
-                  {canManageFamily && member.hasAccount && (
-                    <span className="member-connected-badge" title="Has their own login">
-                      <Check size={11} strokeWidth={3} /> Connected
-                    </span>
-                  )}
-
-                  <span
-                    className="member-color-indicator"
-                    style={{ backgroundColor: member.colour }}
-                  />
-                </div>
-              </div>
-            );
-          })}
-
-          {canManageFamily && (
-            <button type="button" className="add-member-card" onClick={onOpenAddMember}>
-              <UserPlus size={18} />
-              Add family member
-            </button>
-          )}
-        </div>
-      </section>
 
       {/* Summary Stats / Mini Agenda */}
       <section className="profile-summary-section">
@@ -253,17 +181,19 @@ export function ProfileView({
         </div>
       </section>
 
-      {/* Manage modules */}
-      <div className="logout-form">
-        <button
-          type="button"
-          className="manage-modules-btn"
-          onClick={onOpenModules}
-        >
-          <Blocks size={16} />
-          Manage modules
-        </button>
-      </div>
+      {/* Family Admin */}
+      {canManageFamily && (
+        <div className="logout-form">
+          <button
+            type="button"
+            className="manage-modules-btn"
+            onClick={onOpenFamilyAdmin}
+          >
+            <Users size={16} />
+            Family Admin
+          </button>
+        </div>
+      )}
 
       {/* Kitchen display + theme + help */}
       <div className="logout-form profile-secondary-actions">

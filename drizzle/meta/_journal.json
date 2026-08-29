@@ -43,6 +43,13 @@
       "when": 1787938545333,
       "tag": "0005_shocking_vermin",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788018390056,
+      "tag": "0006_quiet_kitty_pryde",
+      "breakpoints": true
     }
   ]
 }

@@ -2,7 +2,7 @@ import { randomUUID } from "crypto";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "./index";
 import { boardItems, events, familyMembers, familyModules, families, modules } from "./schema";
-import { moduleRegistry } from "../src/core/module-registry";
+import { getModuleByCategory, moduleRegistry } from "../src/core/module-registry";
 import { parseIcalFeed } from "../src/core/connectors";
 import { listCustomServices } from "./custom-services-queries";
 import type { BoardItem, Event, FamilyMember, GroundControlModule, ModuleFeed } from "../src/core/models";
@@ -17,11 +17,13 @@ function mapMember(row: MemberRow): FamilyMember {
     familyId: row.familyId,
     name: row.name,
     shortName: row.shortName ?? undefined,
+    nickname: row.nickname ?? undefined,
     colour: row.colour,
     avatarEmoji: row.avatarEmoji ?? undefined,
     role: row.role,
     title: row.title ?? undefined,
     hasAccount: row.userId != null,
+    lastSeenAt: row.lastSeenAt ? row.lastSeenAt.toISOString() : undefined,
   };
 }
 
@@ -45,6 +47,7 @@ function mapEvent(row: EventRow, moduleKey?: string | null): Event {
     sourceId: row.sourceId ?? undefined,
     status: row.status,
     details: (row.details as Record<string, unknown>) ?? undefined,
+    isDemo: row.isDemo,
   };
 }
 
@@ -67,6 +70,7 @@ function mapBoardItem(row: BoardItemRow, moduleKey?: string | null): BoardItem {
     completed: row.completed,
     badge: row.badge ?? undefined,
     color: row.color ?? undefined,
+    isDemo: row.isDemo,
   };
 }
 
@@ -95,6 +99,12 @@ export function readModuleFeeds(config: Record<string, unknown>): ModuleFeed[] {
   return [];
 }
 
+/**
+ * Looks up a module's DB row id by its registry key, self-healing by
+ * auto-inserting a row from the code-level `moduleRegistry` definition the
+ * first time a module (e.g. a newly added one like "bills") is used but
+ * hasn't been provisioned in the `modules` table yet.
+ */
 async function getModuleId(key: string): Promise<string | undefined> {
   const db = getDb();
   const [row] = await db
@@ -102,7 +112,31 @@ async function getModuleId(key: string): Promise<string | undefined> {
     .from(modules)
     .where(eq(modules.key, key))
     .limit(1);
-  return row?.id;
+  if (row) return row.id;
+
+  const def = moduleRegistry.find((m) => m.key === key);
+  if (!def) return undefined;
+
+  const [inserted] = await db
+    .insert(modules)
+    .values({
+      key: def.key,
+      name: def.name,
+      description: def.description,
+      icon: def.icon,
+      isCore: def.isCore,
+    })
+    .onConflictDoNothing({ target: modules.key })
+    .returning({ id: modules.id });
+
+  if (inserted) return inserted.id;
+
+  const [existing] = await db
+    .select({ id: modules.id })
+    .from(modules)
+    .where(eq(modules.key, key))
+    .limit(1);
+  return existing?.id;
 }
 
 /**
@@ -203,6 +237,7 @@ export async function updateFamilyMemberAvatar(
 export type UpdateFamilyMemberInput = Partial<{
   name: string;
   shortName: string;
+  nickname: string;
   colour: string;
   avatarEmoji: string;
   role: "adult" | "teen" | "child" | "pet";
@@ -222,6 +257,19 @@ export async function updateFamilyMember(
     .returning();
 
   return mapMember(row);
+}
+
+/**
+ * Marks a family member's profile as just having been made active — powers
+ * the "Last visit" line on their Profile screen. Fire-and-forget from the UI
+ * (see handleSelectUser in ground-control-app.tsx); failures are non-fatal.
+ */
+export async function touchMemberLastSeen(memberId: string): Promise<void> {
+  const db = getDb();
+  await db
+    .update(familyMembers)
+    .set({ lastSeenAt: new Date() })
+    .where(eq(familyMembers.id, memberId));
 }
 
 /**
@@ -254,11 +302,16 @@ export type NewEventInput = {
   accentColor?: string;
   source?: string;
   customServiceId?: string;
+  isDemo?: boolean;
 };
 
 export async function createEvent(input: NewEventInput): Promise<Event> {
   const db = getDb();
-  const moduleId = await getModuleId("planner");
+  // A manually-created event's category decides which module "owns" it (e.g.
+  // picking a Bills category tags it to the Bills module) — falls back to the
+  // core planner module for the generic categories (family/appointment/...).
+  const moduleKey = getModuleByCategory(input.category)?.key ?? "planner";
+  const moduleId = await getModuleId(moduleKey);
 
   const [row] = await db
     .insert(events)
@@ -277,10 +330,11 @@ export async function createEvent(input: NewEventInput): Promise<Event> {
       icon: input.icon,
       accentColor: input.accentColor,
       source: input.source ?? "manual",
+      isDemo: input.isDemo ?? false,
     })
     .returning();
 
-  return mapEvent(row, "planner");
+  return mapEvent(row, moduleKey);
 }
 
 export type NewBoardItemInput = {
@@ -292,6 +346,7 @@ export type NewBoardItemInput = {
   badge?: string;
   color?: string;
   customServiceId?: string;
+  isDemo?: boolean;
 };
 
 export async function createBoardItem(input: NewBoardItemInput): Promise<BoardItem> {
@@ -310,6 +365,7 @@ export async function createBoardItem(input: NewBoardItemInput): Promise<BoardIt
       pinned: input.pinned ?? false,
       badge: input.badge,
       color: input.color,
+      isDemo: input.isDemo ?? false,
     })
     .returning();
 
@@ -369,6 +425,10 @@ export async function getFamilyModules(familyId: string): Promise<GroundControlM
     const enabled = familyModule ? familyModule.enabled : def.isCore;
     const config = (familyModule?.config as Record<string, unknown>) ?? {};
 
+    const visibleToMemberIds = Array.isArray(config.visibleToMemberIds)
+      ? (config.visibleToMemberIds as string[])
+      : undefined;
+
     return {
       id: dbModule?.id ?? def.key,
       key: def.key,
@@ -379,8 +439,32 @@ export async function getFamilyModules(familyId: string): Promise<GroundControlM
       status: def.isCore ? "installed" : enabled ? "installed" : "available",
       icon: def.icon,
       feeds: readModuleFeeds(config),
+      visibleToMemberIds,
     };
   });
+}
+
+/**
+ * Sets which family members can see an (optional) module's data — an empty
+ * array means "everyone" (the default). Adults always see everything
+ * regardless of this setting; filtering only ever applies to non-adult
+ * current users (see ground-control-app.tsx).
+ */
+export async function setModuleVisibility(
+  familyId: string,
+  moduleKey: string,
+  memberIds: string[]
+): Promise<void> {
+  const moduleId = await getModuleId(moduleKey);
+  if (!moduleId) {
+    throw new Error(`Unknown module key: ${moduleKey}`);
+  }
+
+  const db = getDb();
+  const row = await getOrCreateFamilyModuleRow(familyId, moduleId, false);
+  const config = (row.config as Record<string, unknown>) ?? {};
+  const newConfig: Record<string, unknown> = { ...config, visibleToMemberIds: memberIds };
+  await db.update(familyModules).set({ config: newConfig }).where(eq(familyModules.id, row.id));
 }
 
 export async function setFamilyModuleEnabled(
@@ -440,7 +524,7 @@ async function getOrCreateFamilyModuleRow(
 export async function saveModuleFeed(
   familyId: string,
   moduleKey: string,
-  feed: { id?: string; label: string; url: string }
+  feed: { id?: string; label: string; url: string; personIds?: string[] }
 ): Promise<ModuleFeed> {
   const moduleId = await getModuleId(moduleKey);
   if (!moduleId) {
@@ -455,10 +539,15 @@ export async function saveModuleFeed(
   let saved: ModuleFeed;
   const existingIndex = feed.id ? feeds.findIndex((f) => f.id === feed.id) : -1;
   if (existingIndex >= 0) {
-    saved = { ...feeds[existingIndex], label: feed.label, url: feed.url };
+    saved = {
+      ...feeds[existingIndex],
+      label: feed.label,
+      url: feed.url,
+      personIds: feed.personIds ?? feeds[existingIndex].personIds,
+    };
     feeds[existingIndex] = saved;
   } else {
-    saved = { id: randomUUID(), label: feed.label, url: feed.url };
+    saved = { id: randomUUID(), label: feed.label, url: feed.url, personIds: feed.personIds ?? [] };
     feeds.push(saved);
   }
 
@@ -587,7 +676,7 @@ export async function syncModuleFeed(
           end: ce.end ? new Date(ce.end) : undefined,
           allDay: ce.allDay,
           category: moduleKey,
-          personIds: [],
+          personIds: feed.personIds ?? [],
           location: ce.location,
           source: moduleKey,
           sourceId,
@@ -610,4 +699,99 @@ export async function syncModuleFeed(
   }
 
   return { events: syncedEvents, createdCount, updatedCount, lastSyncedAt };
+}
+
+// ---------------------------------------------------------------------------
+// Demo / starter data — created once for a brand new family at signup so the
+// app isn't an empty shell on first login, and removable in one tap later
+// from the Family Admin screen (see removeDemoData below).
+// ---------------------------------------------------------------------------
+
+/**
+ * Seeds a couple of `isDemo: true` items for a newly-signed-up family: a
+ * pinned "Add to Home Screen" note (with iPhone/Android instructions) and a
+ * sample event + task so Today/Week/Remember aren't empty on first login.
+ * Called once from `createFamilyWithOwner` (db/auth-queries.ts). Never
+ * touches personIds/visibility — demo items are visible to everyone.
+ */
+export async function seedDemoDataForFamily(
+  familyId: string,
+  ownerMemberId: string
+): Promise<void> {
+  const db = getDb();
+  const plannerModuleId = await getModuleId("planner");
+  const boardModuleId = await getModuleId("board");
+
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  tomorrow.setHours(9, 0, 0, 0);
+
+  await db.insert(boardItems).values({
+    familyId,
+    moduleId: boardModuleId,
+    text: "📱 Add Ground Control to your Home Screen",
+    subtitle:
+      "iPhone: tap the Share icon in Safari, then \"Add to Home Screen\". " +
+      "Android: open the ⋮ menu in Chrome, then \"Add to Home screen\" (or \"Install app\").",
+    type: "note",
+    personIds: [],
+    pinned: true,
+    badge: "📌",
+    color: "#FFF4D2",
+    isDemo: true,
+  });
+
+  await db.insert(boardItems).values({
+    familyId,
+    moduleId: boardModuleId,
+    text: "Try adding your first task",
+    subtitle: "Tap the + button below to add an event, task, note or reminder.",
+    type: "task",
+    personIds: [ownerMemberId],
+    pinned: false,
+    badge: "✓",
+    color: "#E6FAF4",
+    isDemo: true,
+  });
+
+  await db.insert(events).values({
+    familyId,
+    moduleId: plannerModuleId,
+    title: "Welcome to Ground Control 🚀",
+    description: "This is a sample event — feel free to delete it once you've had a look around.",
+    start: tomorrow,
+    allDay: false,
+    category: "general",
+    personIds: [ownerMemberId],
+    icon: "✨",
+    accentColor: "#6C4DFF",
+    source: "manual",
+    isDemo: true,
+  });
+}
+
+export type RemoveDemoDataResult = {
+  removedEvents: number;
+  removedBoardItems: number;
+};
+
+/**
+ * Bulk-deletes every `isDemo: true` event/board item for a family — the
+ * "Remove demo data" button in Family Admin. Scoped to `familyId` so one
+ * household can never affect another's data.
+ */
+export async function removeDemoData(familyId: string): Promise<RemoveDemoDataResult> {
+  const db = getDb();
+  const [removedEvents, removedBoardItems] = await Promise.all([
+    db
+      .delete(events)
+      .where(and(eq(events.familyId, familyId), eq(events.isDemo, true)))
+      .returning({ id: events.id }),
+    db
+      .delete(boardItems)
+      .where(and(eq(boardItems.familyId, familyId), eq(boardItems.isDemo, true)))
+      .returning({ id: boardItems.id }),
+  ]);
+
+  return { removedEvents: removedEvents.length, removedBoardItems: removedBoardItems.length };
 }

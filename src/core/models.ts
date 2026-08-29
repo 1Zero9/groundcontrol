@@ -9,6 +9,8 @@ export type FamilyMember = {
   familyId?: string;
   name: string;
   shortName?: string;
+  /** Personal nickname the member sets for themselves on their own Profile screen. */
+  nickname?: string;
   colour: string;
   avatar?: string;
   avatarEmoji?: string;
@@ -16,6 +18,8 @@ export type FamilyMember = {
   title?: string;
   /** True if this profile already has its own login (see /invite connect flow). */
   hasAccount?: boolean;
+  /** ISO timestamp of the last time this profile was made active. */
+  lastSeenAt?: string;
 };
 
 // Core categories always available (from the "planner" module). Modules can
@@ -58,6 +62,8 @@ export type Event = {
   status?: "active" | "cancelled" | "completed";
   /** Module-specific structured payload (e.g. sports opponent, school term). */
   details?: Record<string, unknown>;
+  /** True for starter/onboarding content auto-created for a new family. */
+  isDemo?: boolean;
 };
 
 export type BoardItem = {
@@ -78,6 +84,8 @@ export type BoardItem = {
   completed?: boolean;
   badge?: string;
   color?: string;
+  /** True for starter/onboarding content auto-created for a new family. */
+  isDemo?: boolean;
 };
 
 /**
@@ -91,6 +99,8 @@ export type ModuleFeed = {
   url: string;
   /** ISO timestamp of the last successful sync of this specific feed, if any. */
   lastSyncedAt?: string;
+  /** Family members events synced from this feed should be tagged to (empty/undefined = everyone). */
+  personIds?: string[];
 };
 
 export type GroundControlModule = {
@@ -106,4 +116,6 @@ export type GroundControlModule = {
   icon?: string;
   /** Calendar feeds (iCal/webcal) this module syncs events from — can be more than one. */
   feeds: ModuleFeed[];
+  /** Family members who can see this module's data (empty/undefined = everyone). Adults always see everything. */
+  visibleToMemberIds?: string[];
 };

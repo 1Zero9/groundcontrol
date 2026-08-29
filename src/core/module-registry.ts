@@ -16,7 +16,7 @@ import { z } from "zod";
  * module = add an entry here + a row in the DB, no core schema changes.
  */
 
-export type ModuleKey = "planner" | "board" | "sports" | "school" | "life";
+export type ModuleKey = "planner" | "board" | "sports" | "school" | "life" | "bills";
 
 export interface ModuleCategory {
   value: string;
@@ -155,6 +155,36 @@ const lifeModule: ModuleDefinition<typeof lifeDetailsSchema> = {
 };
 
 // ---------------------------------------------------------------------------
+// Bills & Renewals module (subscriptions, utilities, insurance, anything with
+// a due date and a recurring cost)
+// ---------------------------------------------------------------------------
+
+export const billsDetailsSchema = z.object({
+  provider: z.string().optional(),
+  amount: z.number().optional(),
+  currency: z.string().optional(),
+  dueDate: z.string().optional(),
+  recurring: z.enum(["monthly", "yearly", "one-off"]).optional(),
+  autoRenew: z.boolean().optional(),
+});
+export type BillsDetails = z.infer<typeof billsDetailsSchema>;
+
+const billsModule: ModuleDefinition<typeof billsDetailsSchema> = {
+  key: "bills",
+  name: "Bills & Renewals",
+  description: "Subscriptions, utilities, insurance and renewal dates",
+  icon: "receipt",
+  isCore: false,
+  categories: [
+    { value: "bill.subscription", label: "Subscription", icon: "💳", color: "#6C4DFF" },
+    { value: "bill.utility", label: "Utility", icon: "🔌", color: "#4D96FF" },
+    { value: "bill.insurance", label: "Insurance", icon: "🛡️", color: "#22C1A2" },
+    { value: "bill.renewal", label: "Renewal", icon: "🔁", color: "#FFB347" },
+  ],
+  detailsSchema: billsDetailsSchema,
+};
+
+// ---------------------------------------------------------------------------
 // Registry
 // ---------------------------------------------------------------------------
 
@@ -164,6 +194,7 @@ export const moduleRegistry: ModuleDefinition[] = [
   sportsModule,
   schoolModule,
   lifeModule,
+  billsModule,
 ];
 
 export function getModule(key: ModuleKey): ModuleDefinition | undefined {

@@ -105,6 +105,10 @@ export const familyMembers = pgTable("family_members", {
     .references(() => families.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   shortName: text("short_name"),
+  // Personal nickname the member sets for themselves on their own Profile
+  // screen (distinct from `shortName`, which is used as the avatar-initial
+  // fallback everywhere else in the UI).
+  nickname: text("nickname"),
   colour: text("colour").notNull(),
   avatarEmoji: text("avatar_emoji"),
   role: memberRoleEnum("role").notNull().default("child"),
@@ -112,6 +116,8 @@ export const familyMembers = pgTable("family_members", {
   // Marks which profile the logged-in account holder is. Nullable so
   // kids/pets can exist as profiles without their own login.
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+  // Last time this profile was switched to / active in the app.
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -178,6 +184,9 @@ export const customServices = pgTable("custom_services", {
   icon: text("icon"),
   colour: text("colour"),
   feedUrl: text("feed_url"),
+  // Family members this service's synced events should be tagged to (empty
+  // = visible to everyone, same convention as events.personIds).
+  personIds: uuid("person_ids").array().notNull().default([]),
   lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
@@ -222,6 +231,9 @@ export const events = pgTable("events", {
   // Module-specific structured payload, validated by the module's zod schema
   // at the application layer (e.g. sports: { opponent, competition, venue }).
   details: jsonb("details").$type<Record<string, unknown>>().default({}),
+  // Marks starter/onboarding content auto-created for a new family so it can
+  // be identified and bulk-removed later (see removeDemoData in db/queries.ts).
+  isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -257,6 +269,7 @@ export const boardItems = pgTable("board_items", {
   completed: boolean("completed").notNull().default(false),
   badge: text("badge"),
   color: text("color"),
+  isDemo: boolean("is_demo").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

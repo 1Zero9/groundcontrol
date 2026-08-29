@@ -10,13 +10,15 @@ import {
   Lock,
   Pin,
   Plus,
+  Receipt,
   RefreshCw,
   Search,
   Trash2,
   Trophy,
 } from "lucide-react";
-import type { GroundControlModule, ModuleFeed } from "../../src/core/models";
+import type { FamilyMember, GroundControlModule, ModuleFeed } from "../../src/core/models";
 import type { CustomService } from "../../db/custom-services-queries";
+import { MemberAvatarContent } from "./member-avatar";
 
 interface SyncResult {
   createdCount: number;
@@ -26,13 +28,15 @@ interface SyncResult {
 
 interface ModulesViewProps {
   modules: GroundControlModule[];
+  family: FamilyMember[];
   onToggle: (moduleKey: string, enabled: boolean) => void;
   onSaveFeed: (
     moduleKey: string,
-    feed: { id?: string; label: string; url: string }
+    feed: { id?: string; label: string; url: string; personIds?: string[] }
   ) => Promise<ModuleFeed>;
   onSyncFeed: (moduleKey: string, feedId: string) => Promise<SyncResult>;
   onRemoveFeed: (moduleKey: string, feedId: string) => Promise<void>;
+  onSetModuleVisibility: (moduleKey: string, memberIds: string[]) => void;
   onBack: () => void;
   customServices: CustomService[];
   onAddCustomService: (input: {
@@ -45,6 +49,7 @@ interface ModulesViewProps {
   onSaveCustomServiceFeedUrl: (id: string, feedUrl: string) => Promise<void>;
   onSyncCustomServiceFeed: (id: string) => Promise<SyncResult>;
   onDiscoverCalendarFeeds: (pageUrl: string) => Promise<string[]>;
+  onSetCustomServicePersonIds: (id: string, personIds: string[]) => void;
 }
 
 const MODULE_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
@@ -53,6 +58,7 @@ const MODULE_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   trophy: Trophy,
   "graduation-cap": GraduationCap,
   "heart-pulse": HeartPulse,
+  receipt: Receipt,
 };
 
 function ModuleIcon({ icon }: { icon?: string }) {
@@ -60,28 +66,98 @@ function ModuleIcon({ icon }: { icon?: string }) {
   return <Icon size={20} />;
 }
 
+/**
+ * Compact avatar multi-select used for both "Assigned to" (a feed/service's
+ * synced events) and "Visible to" (a whole module's data) — empty selection
+ * means "everyone" in both cases. An explicit "Everyone" chip clears the
+ * selection rather than requiring every person to be individually picked.
+ */
+function PersonPicker({
+  family,
+  selectedIds,
+  onChange,
+  label,
+}: {
+  family: FamilyMember[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+  label: string;
+}) {
+  const isEveryone = selectedIds.length === 0;
+  const people = family.filter((m) => m.role !== "pet");
+
+  return (
+    <div className="mini-person-picker">
+      <p className="module-feed-label">{label}</p>
+      <div className="mini-avatar-pick-row">
+        <button
+          type="button"
+          className={`mini-pick-chip ${isEveryone ? "selected" : ""}`}
+          onClick={() => onChange([])}
+        >
+          Everyone
+        </button>
+        {people.map((m) => {
+          const isSelected = selectedIds.includes(m.id);
+          return (
+            <button
+              key={m.id}
+              type="button"
+              className={`mini-avatar-pick-btn ${isSelected ? "selected" : ""}`}
+              onClick={() =>
+                onChange(
+                  isSelected
+                    ? selectedIds.filter((id) => id !== m.id)
+                    : [...selectedIds, m.id]
+                )
+              }
+              title={m.name}
+              aria-label={m.name}
+            >
+              <span className="mini-avatar-circle" style={{ backgroundColor: m.colour }}>
+                <MemberAvatarContent
+                  avatarValue={m.avatarEmoji}
+                  fallback={m.shortName || m.name.charAt(0)}
+                />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function ModuleFeedItem({
   moduleKey,
   feed,
+  family,
   onSaveFeed,
   onSyncFeed,
   onRemoveFeed,
 }: {
   moduleKey: string;
   feed: ModuleFeed;
+  family: FamilyMember[];
   onSaveFeed: (
     moduleKey: string,
-    feed: { id?: string; label: string; url: string }
+    feed: { id?: string; label: string; url: string; personIds?: string[] }
   ) => Promise<ModuleFeed>;
   onSyncFeed: (moduleKey: string, feedId: string) => Promise<SyncResult>;
   onRemoveFeed: (moduleKey: string, feedId: string) => Promise<void>;
 }) {
   const [label, setLabel] = useState(feed.label);
   const [url, setUrl] = useState(feed.url);
+  const [personIds, setPersonIds] = useState<string[]>(feed.personIds ?? []);
   const [status, setStatus] = useState<"idle" | "saving" | "syncing" | "removing" | "error">(
     "idle"
   );
   const [message, setMessage] = useState<string | null>(null);
+
+  const handlePersonIdsChange = async (ids: string[]) => {
+    setPersonIds(ids);
+    await onSaveFeed(moduleKey, { id: feed.id, label: label.trim() || feed.label, url: url.trim() || feed.url, personIds: ids });
+  };
 
   const handleSync = async () => {
     setStatus("saving");
@@ -166,6 +242,12 @@ function ModuleFeedItem({
           Last synced {new Date(feed.lastSyncedAt).toLocaleString()}
         </p>
       )}
+      <PersonPicker
+        family={family}
+        selectedIds={personIds}
+        onChange={handlePersonIdsChange}
+        label="Assigned to"
+      />
     </div>
   );
 }
@@ -246,14 +328,16 @@ function AddFeedForm({
 
 function ModuleFeedsSection({
   mod,
+  family,
   onSaveFeed,
   onSyncFeed,
   onRemoveFeed,
 }: {
   mod: GroundControlModule;
+  family: FamilyMember[];
   onSaveFeed: (
     moduleKey: string,
-    feed: { id?: string; label: string; url: string }
+    feed: { id?: string; label: string; url: string; personIds?: string[] }
   ) => Promise<ModuleFeed>;
   onSyncFeed: (moduleKey: string, feedId: string) => Promise<SyncResult>;
   onRemoveFeed: (moduleKey: string, feedId: string) => Promise<void>;
@@ -268,6 +352,7 @@ function ModuleFeedsSection({
           key={feed.id}
           moduleKey={mod.key}
           feed={feed}
+          family={family}
           onSaveFeed={onSaveFeed}
           onSyncFeed={onSyncFeed}
           onRemoveFeed={onRemoveFeed}
@@ -280,18 +365,28 @@ function ModuleFeedsSection({
 
 function CustomServiceRow({
   service,
+  family,
   onSaveFeedUrl,
   onSyncFeed,
   onDelete,
+  onSetPersonIds,
 }: {
   service: CustomService;
+  family: FamilyMember[];
   onSaveFeedUrl: (id: string, feedUrl: string) => Promise<void>;
   onSyncFeed: (id: string) => Promise<SyncResult>;
   onDelete: (id: string) => Promise<void>;
+  onSetPersonIds: (id: string, personIds: string[]) => void;
 }) {
   const [feedUrl, setFeedUrl] = useState(service.feedUrl ?? "");
+  const [personIds, setPersonIds] = useState<string[]>(service.personIds ?? []);
   const [status, setStatus] = useState<"idle" | "saving" | "syncing" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
+
+  const handlePersonIdsChange = (ids: string[]) => {
+    setPersonIds(ids);
+    onSetPersonIds(service.id, ids);
+  };
 
   const handleSync = async () => {
     setStatus("saving");
@@ -371,6 +466,13 @@ function CustomServiceRow({
           </p>
         )}
       </div>
+
+      <PersonPicker
+        family={family}
+        selectedIds={personIds}
+        onChange={handlePersonIdsChange}
+        label="Assigned to"
+      />
     </div>
   );
 }
@@ -511,10 +613,12 @@ function AddServiceForm({
 
 export function ModulesView({
   modules,
+  family,
   onToggle,
   onSaveFeed,
   onSyncFeed,
   onRemoveFeed,
+  onSetModuleVisibility,
   onBack,
   customServices,
   onAddCustomService,
@@ -522,6 +626,7 @@ export function ModulesView({
   onSaveCustomServiceFeedUrl,
   onSyncCustomServiceFeed,
   onDiscoverCalendarFeeds,
+  onSetCustomServicePersonIds,
 }: ModulesViewProps) {
   const coreModules = modules.filter((m) => m.isCore);
   const optionalModules = modules.filter((m) => !m.isCore);
@@ -601,12 +706,21 @@ export function ModulesView({
               </div>
 
               {mod.enabled && (
-                <ModuleFeedsSection
-                  mod={mod}
-                  onSaveFeed={onSaveFeed}
-                  onSyncFeed={onSyncFeed}
-                  onRemoveFeed={onRemoveFeed}
-                />
+                <>
+                  <ModuleFeedsSection
+                    mod={mod}
+                    family={family}
+                    onSaveFeed={onSaveFeed}
+                    onSyncFeed={onSyncFeed}
+                    onRemoveFeed={onRemoveFeed}
+                  />
+                  <PersonPicker
+                    family={family}
+                    selectedIds={mod.visibleToMemberIds ?? []}
+                    onChange={(ids) => onSetModuleVisibility(mod.key, ids)}
+                    label="Visible to"
+                  />
+                </>
               )}
             </div>
           ))}
@@ -624,9 +738,11 @@ export function ModulesView({
             <CustomServiceRow
               key={service.id}
               service={service}
+              family={family}
               onSaveFeedUrl={onSaveCustomServiceFeedUrl}
               onSyncFeed={onSyncCustomServiceFeed}
               onDelete={onDeleteCustomService}
+              onSetPersonIds={onSetCustomServicePersonIds}
             />
           ))}
         </div>

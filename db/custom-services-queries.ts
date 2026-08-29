@@ -23,6 +23,8 @@ export type CustomService = {
   icon?: string;
   colour?: string;
   feedUrl?: string;
+  /** Family members this service's synced events should be tagged to (empty = everyone). */
+  personIds?: string[];
   lastSyncedAt?: string;
   createdAt: string;
 };
@@ -37,6 +39,7 @@ function mapCustomService(row: CustomServiceRow): CustomService {
     icon: row.icon ?? undefined,
     colour: row.colour ?? undefined,
     feedUrl: row.feedUrl ?? undefined,
+    personIds: row.personIds,
     lastSyncedAt: row.lastSyncedAt ? row.lastSyncedAt.toISOString() : undefined,
     createdAt: row.createdAt.toISOString(),
   };
@@ -57,6 +60,7 @@ export type NewCustomServiceInput = {
   icon?: string;
   colour?: string;
   feedUrl?: string;
+  personIds?: string[];
 };
 
 export async function createCustomService(input: NewCustomServiceInput): Promise<CustomService> {
@@ -69,6 +73,7 @@ export async function createCustomService(input: NewCustomServiceInput): Promise
       icon: input.icon,
       colour: input.colour,
       feedUrl: input.feedUrl?.trim() || undefined,
+      personIds: input.personIds ?? [],
     })
     .returning();
   return mapCustomService(row);
@@ -91,6 +96,18 @@ export async function setCustomServiceFeedUrl(
   await db
     .update(customServices)
     .set({ feedUrl: feedUrl.trim() })
+    .where(and(eq(customServices.id, id), eq(customServices.familyId, familyId)));
+}
+
+export async function setCustomServicePersonIds(
+  id: string,
+  familyId: string,
+  personIds: string[]
+): Promise<void> {
+  const db = getDb();
+  await db
+    .update(customServices)
+    .set({ personIds })
     .where(and(eq(customServices.id, id), eq(customServices.familyId, familyId)));
 }
 
@@ -120,6 +137,7 @@ function mapSyncedEvent(row: typeof events.$inferSelect): Event {
     status: row.status,
     details: (row.details as Record<string, unknown>) ?? undefined,
     customServiceId: row.customServiceId ?? undefined,
+    isDemo: row.isDemo,
   };
 }
 
@@ -196,7 +214,7 @@ export async function syncCustomServiceFeed(
           category: "custom",
           icon: service.icon ?? undefined,
           accentColor: service.colour ?? undefined,
-          personIds: [],
+          personIds: service.personIds ?? [],
           location: ce.location,
           source: "custom",
           sourceId: ce.uid,

@@ -1,13 +1,26 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Home, CalendarDays, Plus, User, Menu } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import {
+  Home,
+  CalendarDays,
+  Plus,
+  User,
+  Menu,
+  X,
+  Users,
+  ListChecks,
+  LayoutDashboard,
+  HelpCircle,
+  LogOut,
+} from "lucide-react";
 import type { BoardItem, Event, FamilyMember, GroundControlModule } from "../../src/core/models";
 import type { CustomService } from "../../db/custom-services-queries";
 import { TodayView } from "./today-view";
 import { WeekView } from "./week-view";
 import { RememberBoardView } from "./remember-board-view";
 import { ProfileView } from "./profile-view";
+import { FamilyAdminView } from "./family-admin-view";
 import { ModulesView } from "./modules-view";
 import { KitchenDisplayView } from "./kitchen-display-view";
 import { HelpView } from "./help-view";
@@ -16,6 +29,7 @@ import { AddMemberModal } from "./add-member-modal";
 import { EditAvatarModal } from "./edit-avatar-modal";
 import { InviteLinkModal } from "./invite-link-modal";
 import { MemberAvatarContent } from "./member-avatar";
+import { logoutAction } from "../../lib/auth/actions";
 import {
   createBoardItemAction,
   createCustomServiceAction,
@@ -24,13 +38,17 @@ import {
   deleteCustomServiceAction,
   discoverCalendarFeedsAction,
   removeBoardItemAction,
+  removeDemoDataAction,
   removeModuleFeedAction,
   saveModuleFeedAction,
   setCustomServiceFeedUrlAction,
+  setCustomServicePersonIdsAction,
   setFamilyModuleEnabledAction,
+  setModuleVisibilityAction,
   syncCustomServiceFeedAction,
   syncModuleFeedAction,
   toggleBoardItemAction,
+  touchMemberLastSeenAction,
   updateFamilyMemberAction,
   updateFamilyMemberAvatarAction,
 } from "../actions";
@@ -44,7 +62,15 @@ interface GroundControlAppProps {
   initialCustomServices: CustomService[];
 }
 
-type TabView = "today" | "week" | "remember" | "profile" | "modules" | "kitchen" | "help";
+type TabView =
+  | "today"
+  | "week"
+  | "remember"
+  | "profile"
+  | "family-admin"
+  | "modules"
+  | "kitchen"
+  | "help";
 
 export function GroundControlApp({
   familyId,
@@ -67,6 +93,7 @@ export function GroundControlApp({
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [invitingMember, setInvitingMember] = useState<FamilyMember | null>(null);
   const [isEditAvatarOpen, setIsEditAvatarOpen] = useState(false);
+  const [isNavDrawerOpen, setIsNavDrawerOpen] = useState(false);
 
   // Register service worker if available
   useEffect(() => {
@@ -77,6 +104,41 @@ export function GroundControlApp({
 
   const currentUser =
     family.find((m) => m.id === currentUserId) || family[0];
+
+  // Fire-and-forget "last seen" ping whenever the active profile changes —
+  // intentionally not reflected in local state so the Profile screen keeps
+  // showing the *previous* visit until the next full page load.
+  useEffect(() => {
+    if (currentUser.id) {
+      touchMemberLastSeenAction(currentUser.id).catch(() => undefined);
+    }
+  }, [currentUser.id]);
+
+  // Modules a non-adult current user is allowed to see data from — adults
+  // always see everything; a module with an empty/undefined visibleToMemberIds
+  // is visible to everyone.
+  const visibleModuleKeys = useMemo(() => {
+    return new Set(
+      modules
+        .filter(
+          (m) =>
+            currentUser.role === "adult" ||
+            !m.visibleToMemberIds ||
+            m.visibleToMemberIds.length === 0 ||
+            m.visibleToMemberIds.includes(currentUser.id)
+        )
+        .map((m) => m.key)
+    );
+  }, [modules, currentUser.role, currentUser.id]);
+
+  const visibleEvents = useMemo(
+    () => events.filter((e) => !e.moduleKey || visibleModuleKeys.has(e.moduleKey)),
+    [events, visibleModuleKeys]
+  );
+  const visibleBoard = useMemo(
+    () => board.filter((b) => !b.moduleKey || visibleModuleKeys.has(b.moduleKey)),
+    [board, visibleModuleKeys]
+  );
 
   const handleSaveEvent = async (draft: Event) => {
     const optimisticId = draft.id;
@@ -166,7 +228,7 @@ export function GroundControlApp({
 
   const handleSaveModuleFeed = async (
     moduleKey: string,
-    feed: { id?: string; label: string; url: string }
+    feed: { id?: string; label: string; url: string; personIds?: string[] }
   ) => {
     const saved = await saveModuleFeedAction(familyId, moduleKey, feed);
     setModules((prev) =>
@@ -269,6 +331,43 @@ export function GroundControlApp({
     return discoverCalendarFeedsAction(pageUrl);
   };
 
+  const handleSetModuleVisibility = (moduleKey: string, memberIds: string[]) => {
+    setModules((prev) =>
+      prev.map((m) => (m.key === moduleKey ? { ...m, visibleToMemberIds: memberIds } : m))
+    );
+    setModuleVisibilityAction(familyId, moduleKey, memberIds).catch((err) => {
+      console.error("Failed to set module visibility", err);
+    });
+  };
+
+  const handleSetCustomServicePersonIds = (id: string, personIds: string[]) => {
+    setCustomServices((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, personIds } : s))
+    );
+    setCustomServicePersonIdsAction(id, familyId, personIds).catch((err) => {
+      console.error("Failed to set assigned members", err);
+    });
+  };
+
+  const handleRemoveDemoData = async () => {
+    const result = await removeDemoDataAction(familyId);
+    setEvents((prev) => prev.filter((e) => !e.isDemo));
+    setBoard((prev) => prev.filter((b) => !b.isDemo));
+    return result;
+  };
+
+  const handleSaveNickname = async (nickname: string) => {
+    const memberId = currentUser.id;
+    const previous = family;
+    setFamily((prev) => prev.map((m) => (m.id === memberId ? { ...m, nickname } : m)));
+    try {
+      await updateFamilyMemberAction(memberId, { nickname });
+    } catch (err) {
+      console.error("Failed to save nickname", err);
+      setFamily(previous);
+    }
+  };
+
   const handleUpdateAvatar = async (avatarKey: string) => {
     const memberId = currentUser.id;
     const previous = family;
@@ -350,8 +449,8 @@ export function GroundControlApp({
               <button
                 type="button"
                 className="header-menu-btn"
-                onClick={() => setActiveTab("profile")}
-                aria-label="Open menu and family profiles"
+                onClick={() => setIsNavDrawerOpen(true)}
+                aria-label="Open menu"
               >
                 <Menu size={24} />
               </button>
@@ -381,8 +480,8 @@ export function GroundControlApp({
               {activeTab === "today" && (
                 <TodayView
                   currentUser={currentUser}
-                  events={events}
-                  board={board}
+                  events={visibleEvents}
+                  board={visibleBoard}
                   onNavigateToWeek={() => setActiveTab("week")}
                   onOpenAdd={() => setIsAddOpen(true)}
                   onToggleTask={handleToggleBoardItem}
@@ -393,14 +492,14 @@ export function GroundControlApp({
                 <WeekView
                   currentUser={currentUser}
                   family={family}
-                  events={events}
+                  events={visibleEvents}
                   onOpenAdd={() => setIsAddOpen(true)}
                 />
               )}
 
               {activeTab === "remember" && (
                 <RememberBoardView
-                  board={board}
+                  board={visibleBoard}
                   family={family}
                   onOpenAdd={() => setIsAddOpen(true)}
                   onRemoveItem={handleRemoveBoardItem}
@@ -410,17 +509,29 @@ export function GroundControlApp({
 
               {activeTab === "profile" && (
                 <ProfileView
+                  currentUser={currentUser}
+                  events={visibleEvents}
+                  board={visibleBoard}
+                  onOpenEditAvatar={() => setIsEditAvatarOpen(true)}
+                  onOpenKitchen={() => setActiveTab("kitchen")}
+                  onOpenHelp={() => setActiveTab("help")}
+                  onOpenFamilyAdmin={() => setActiveTab("family-admin")}
+                  canManageFamily={currentUser.role === "adult"}
+                  onSaveNickname={handleSaveNickname}
+                  isDarkMode={isDarkMode}
+                  onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
+                />
+              )}
+
+              {activeTab === "family-admin" && (
+                <FamilyAdminView
                   family={family}
                   currentUser={currentUser}
+                  events={events}
                   onSelectUser={(u) => {
                     setCurrentUserId(u.id);
                     setActiveTab("today");
                   }}
-                  events={events}
-                  board={board}
-                  onOpenAdd={() => setIsAddOpen(true)}
-                  onOpenModules={() => setActiveTab("modules")}
-                  onOpenKitchen={() => setActiveTab("kitchen")}
                   onOpenAddMember={() => {
                     setEditingMember(null);
                     setIsAddMemberOpen(true);
@@ -430,10 +541,9 @@ export function GroundControlApp({
                     setIsAddMemberOpen(true);
                   }}
                   onOpenInviteMember={(member) => setInvitingMember(member)}
-                  onOpenEditAvatar={() => setIsEditAvatarOpen(true)}
-                  onOpenHelp={() => setActiveTab("help")}
-                  isDarkMode={isDarkMode}
-                  onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
+                  onOpenModules={() => setActiveTab("modules")}
+                  onRemoveDemoData={handleRemoveDemoData}
+                  onBack={() => setActiveTab("profile")}
                 />
               )}
 
@@ -444,17 +554,20 @@ export function GroundControlApp({
               {activeTab === "modules" && (
                 <ModulesView
                   modules={modules}
+                  family={family}
                   onToggle={handleToggleModule}
                   onSaveFeed={handleSaveModuleFeed}
                   onSyncFeed={handleSyncModuleFeed}
                   onRemoveFeed={handleRemoveModuleFeed}
-                  onBack={() => setActiveTab("profile")}
+                  onSetModuleVisibility={handleSetModuleVisibility}
+                  onBack={() => setActiveTab("family-admin")}
                   customServices={customServices}
                   onAddCustomService={handleAddCustomService}
                   onDeleteCustomService={handleDeleteCustomService}
                   onSaveCustomServiceFeedUrl={handleSaveCustomServiceFeedUrl}
                   onSyncCustomServiceFeed={handleSyncCustomServiceFeed}
                   onDiscoverCalendarFeeds={handleDiscoverCalendarFeeds}
+                  onSetCustomServicePersonIds={handleSetCustomServicePersonIds}
                 />
               )}
             </main>
@@ -504,12 +617,119 @@ export function GroundControlApp({
         </div>
       )}
 
+      {/* Slide-out Navigation Drawer */}
+      {isNavDrawerOpen && (
+        <div
+          className="nav-drawer-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Main menu"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsNavDrawerOpen(false);
+          }}
+        >
+          <nav className="nav-drawer-panel">
+            <div className="nav-drawer-header">
+              <span className="nav-drawer-title">Menu</span>
+              <button
+                type="button"
+                className="nav-drawer-close-btn"
+                onClick={() => setIsNavDrawerOpen(false)}
+                aria-label="Close menu"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <button
+              type="button"
+              className={`nav-drawer-item ${activeTab === "today" ? "active" : ""}`}
+              onClick={() => {
+                setActiveTab("today");
+                setIsNavDrawerOpen(false);
+              }}
+            >
+              <Home size={18} /> Today
+            </button>
+            <button
+              type="button"
+              className={`nav-drawer-item ${activeTab === "week" ? "active" : ""}`}
+              onClick={() => {
+                setActiveTab("week");
+                setIsNavDrawerOpen(false);
+              }}
+            >
+              <CalendarDays size={18} /> My week
+            </button>
+            <button
+              type="button"
+              className={`nav-drawer-item ${activeTab === "remember" ? "active" : ""}`}
+              onClick={() => {
+                setActiveTab("remember");
+                setIsNavDrawerOpen(false);
+              }}
+            >
+              <ListChecks size={18} /> Remember board
+            </button>
+            <button
+              type="button"
+              className={`nav-drawer-item ${activeTab === "profile" ? "active" : ""}`}
+              onClick={() => {
+                setActiveTab("profile");
+                setIsNavDrawerOpen(false);
+              }}
+            >
+              <User size={18} /> Profile
+            </button>
+            {currentUser.role === "adult" && (
+              <button
+                type="button"
+                className={`nav-drawer-item ${activeTab === "family-admin" ? "active" : ""}`}
+                onClick={() => {
+                  setActiveTab("family-admin");
+                  setIsNavDrawerOpen(false);
+                }}
+              >
+                <Users size={18} /> Family Admin
+              </button>
+            )}
+            <button
+              type="button"
+              className={`nav-drawer-item ${activeTab === "kitchen" ? "active" : ""}`}
+              onClick={() => {
+                setActiveTab("kitchen");
+                setIsNavDrawerOpen(false);
+              }}
+            >
+              <LayoutDashboard size={18} /> Kitchen Display
+            </button>
+            <button
+              type="button"
+              className={`nav-drawer-item ${activeTab === "help" ? "active" : ""}`}
+              onClick={() => {
+                setActiveTab("help");
+                setIsNavDrawerOpen(false);
+              }}
+            >
+              <HelpCircle size={18} /> Help
+            </button>
+
+            <form action={logoutAction} className="nav-drawer-item-form">
+              <button type="submit" className="nav-drawer-item nav-drawer-logout">
+                <LogOut size={18} /> Log out
+              </button>
+            </form>
+          </nav>
+        </div>
+      )}
+
       {/* Global Add Something Modal */}
       <AddModal
         isOpen={isAddOpen}
         onClose={() => setIsAddOpen(false)}
         currentUser={currentUser}
         family={family}
+        modules={modules}
         customServices={customServices}
         onSaveEvent={handleSaveEvent}
         onSaveBoardItem={handleSaveBoardItem}

@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { X, Calendar, Clock, MapPin, Bell } from "lucide-react";
-import type { Event, BoardItem, FamilyMember } from "../../src/core/models";
+import type { Event, BoardItem, FamilyMember, GroundControlModule } from "../../src/core/models";
 import type { CustomService } from "../../db/custom-services-queries";
+import { moduleRegistry } from "../../src/core/module-registry";
 import { CategoryBadge } from "./cosmic-illustrations";
 import { MemberAvatarContent } from "./member-avatar";
 import { toISODate } from "../../src/core/date-utils";
@@ -13,6 +14,7 @@ interface AddModalProps {
   onClose: () => void;
   currentUser: FamilyMember;
   family: FamilyMember[];
+  modules: GroundControlModule[];
   customServices: CustomService[];
   onSaveEvent: (event: Event) => void;
   onSaveBoardItem: (item: BoardItem) => void;
@@ -23,6 +25,7 @@ export function AddModal({
   onClose,
   currentUser,
   family,
+  modules,
   customServices,
   onSaveEvent,
   onSaveBoardItem,
@@ -32,9 +35,22 @@ export function AddModal({
   const [location, setLocation] = useState("Belvedere");
   const [date, setDate] = useState(() => toISODate(new Date()));
   const [time, setTime] = useState("17:00");
+  const [category, setCategory] = useState("general");
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>([currentUser.id]);
   const [hasReminder, setHasReminder] = useState(true);
   const [customServiceId, setCustomServiceId] = useState<string>("");
+
+  const availableCategories = useMemo(
+    () =>
+      moduleRegistry
+        .filter((m) => modules.find((fm) => fm.key === m.key)?.enabled ?? m.isCore)
+        .flatMap((m) => m.categories),
+    [modules]
+  );
+  const selectedCategoryMeta = useMemo(
+    () => availableCategories.find((c) => c.value === category),
+    [availableCategories, category]
+  );
 
   if (!isOpen) return null;
 
@@ -59,10 +75,10 @@ export function AddModal({
         start: `${date}T${time}:00`,
         end: `${date}T${time}:00`,
         personIds: selectedPersonIds,
-        category: "sports",
+        category,
         location: location || "Home",
-        icon: text.toLowerCase().includes("football") ? "⚽" : text.toLowerCase().includes("dinner") ? "💖" : text.toLowerCase().includes("school") ? "🚌" : "🗓️",
-        accentColor: "#6C4DFF",
+        icon: selectedCategoryMeta?.icon ?? "🗓️",
+        accentColor: selectedCategoryMeta?.color ?? "#6C4DFF",
         source: "User",
         customServiceId: customServiceId || undefined,
       };
@@ -204,6 +220,27 @@ export function AddModal({
                 className="sheet-sub-input"
                 aria-label="Location"
               />
+            </div>
+          )}
+
+          {/* Category if Event */}
+          {categoryType === "event" && (
+            <div className="form-field-group">
+              <label htmlFor="event-category-select" className="whos-it-for-label">
+                Category
+              </label>
+              <select
+                id="event-category-select"
+                className="sheet-sub-input"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+              >
+                {availableCategories.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.icon} {c.label}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
 

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "./index";
 import { families, familyMembers, familyModules, modules, users } from "./schema";
+import { seedDemoDataForFamily } from "./queries";
 
 const MEMBER_COLOURS = ["#6C4DFF", "#FF5CA8", "#22C1A2", "#4D96FF", "#FFB347"];
 
@@ -79,6 +80,8 @@ export async function createFamilyWithOwner(input: CreateFamilyWithOwnerInput) {
       )
     );
   }
+
+  await seedDemoDataForFamily(family.id, member.id);
 
   return { family, user, member };
 }
