@@ -112,8 +112,12 @@ export type GroundControlModule = {
   enabled: boolean;
   /** Core modules are always on and can't be disabled per family. */
   isCore: boolean;
+  /** Admin-created module (not in the code registry) — only visible once assigned to this family. */
+  isCustom?: boolean;
   status?: "installed" | "available" | "coming-soon";
   icon?: string;
+  /** Display accent for custom modules (registry modules use their category colours instead). */
+  colour?: string;
   /** Calendar feeds (iCal/webcal) this module syncs events from — can be more than one. */
   feeds: ModuleFeed[];
   /** Family members who can see this module's data (empty/undefined = everyone). Adults always see everything. */

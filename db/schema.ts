@@ -43,6 +43,12 @@ export const eventStatusEnum = pgEnum("event_status", [
   "completed",
 ]);
 
+export const moduleRequestStatusEnum = pgEnum("module_request_status", [
+  "pending",
+  "approved",
+  "declined",
+]);
+
 // ---------------------------------------------------------------------------
 // Families & members
 // ---------------------------------------------------------------------------
@@ -130,13 +136,22 @@ export const familyMembers = pgTable("family_members", {
 export const modules = pgTable("modules", {
   id: uuid("id").defaultRandom().primaryKey(),
   // Stable slug matching a key in src/core/module-registry.ts, e.g.
-  // "planner" | "board" | "sports" | "school" | "life".
+  // "planner" | "board" | "sports" | "school" | "life". For admin-created
+  // custom modules (isCustom = true) this is a generated slug instead.
   key: text("key").notNull().unique(),
   name: text("name").notNull(),
   description: text("description"),
   icon: text("icon"),
+  // Display accent for admin-created custom modules (registry modules use
+  // their code-level category colours instead).
+  colour: text("colour"),
   // Core modules (planner/board) can't be disabled per family.
   isCore: boolean("is_core").notNull().default(false),
+  // Admin-created modules that don't exist in src/core/module-registry.ts.
+  // Unlike registry modules (available to every family by default), a
+  // custom module only appears for a family once explicitly assigned — see
+  // getFamilyModules() / db/admin-queries.ts.
+  isCustom: boolean("is_custom").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -191,6 +206,33 @@ export const customServices = pgTable("custom_services", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
+// Module requests — a family asking the admin for a module that doesn't
+// exist yet (or isn't assigned to them). Purely a lightweight request/status
+// queue: the admin still creates + assigns the actual module as a separate
+// step (see db/admin-queries.ts); this table just tracks the ask and its
+// outcome so the family can see what happened to it.
+// ---------------------------------------------------------------------------
+
+export const moduleRequests = pgTable("module_requests", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  familyId: uuid("family_id")
+    .notNull()
+    .references(() => families.id, { onDelete: "cascade" }),
+  // Display name of the family member who submitted the request, captured
+  // as free text at submission time (no FK — keeps this simple and avoids
+  // it breaking if the member is later removed).
+  requestedByName: text("requested_by_name"),
+  title: text("title").notNull(),
+  reason: text("reason"),
+  status: moduleRequestStatusEnum("status").notNull().default("pending"),
+  adminNote: text("admin_note"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
 });
 
 // ---------------------------------------------------------------------------
@@ -283,9 +325,17 @@ export const familiesRelations = relations(families, ({ many }) => ({
   members: many(familyMembers),
   modules: many(familyModules),
   customServices: many(customServices),
+  moduleRequests: many(moduleRequests),
   events: many(events),
   boardItems: many(boardItems),
   users: many(users),
+}));
+
+export const moduleRequestsRelations = relations(moduleRequests, ({ one }) => ({
+  family: one(families, {
+    fields: [moduleRequests.familyId],
+    references: [families.id],
+  }),
 }));
 
 export const customServicesRelations = relations(customServices, ({ one, many }) => ({

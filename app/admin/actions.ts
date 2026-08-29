@@ -8,7 +8,15 @@ import {
   setFamilyModuleEnabled,
   syncModuleFeed,
 } from "../../db/queries";
-import { renameFamily, resetFamilyLogin } from "../../db/admin-queries";
+import {
+  createCustomModule,
+  deleteCustomModule,
+  renameFamily,
+  resetFamilyLogin,
+  resolveModuleRequest,
+  setCustomModuleAssignment,
+  type NewCustomModuleInput,
+} from "../../db/admin-queries";
 import {
   createCustomService,
   deleteCustomService,
@@ -126,4 +134,37 @@ export async function adminSyncCustomServiceFeedAction(familyId: string, service
 export async function adminDiscoverCalendarFeedsAction(pageUrl: string) {
   await requireAdmin();
   return discoverCalendarFeeds(pageUrl);
+}
+
+export async function adminCreateCustomModuleAction(input: NewCustomModuleInput) {
+  await requireAdmin();
+  const created = await createCustomModule(input);
+  revalidatePath("/admin");
+  return created;
+}
+
+export async function adminDeleteCustomModuleAction(moduleId: string) {
+  await requireAdmin();
+  await deleteCustomModule(moduleId);
+  revalidatePath("/admin");
+}
+
+export async function adminSetCustomModuleAssignmentAction(
+  moduleId: string,
+  familyId: string,
+  assigned: boolean
+) {
+  await requireAdmin();
+  await setCustomModuleAssignment(moduleId, familyId, assigned);
+  revalidatePath("/admin");
+}
+
+export async function adminResolveModuleRequestAction(
+  requestId: string,
+  status: "approved" | "declined",
+  adminNote?: string
+) {
+  await requireAdmin();
+  await resolveModuleRequest(requestId, status, adminNote);
+  revalidatePath("/admin");
 }

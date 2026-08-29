@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import type { BoardItem, Event, FamilyMember, GroundControlModule } from "../../src/core/models";
 import type { CustomService } from "../../db/custom-services-queries";
+import type { ModuleRequest, NewModuleRequestInput } from "../../db/module-requests-queries";
 import { TodayView } from "./today-view";
 import { WeekView } from "./week-view";
 import { RememberBoardView } from "./remember-board-view";
@@ -40,6 +41,7 @@ import {
   removeBoardItemAction,
   removeDemoDataAction,
   removeModuleFeedAction,
+  requestModuleAction,
   saveModuleFeedAction,
   setCustomServiceFeedUrlAction,
   setCustomServicePersonIdsAction,
@@ -60,6 +62,7 @@ interface GroundControlAppProps {
   initialBoard: BoardItem[];
   initialModules: GroundControlModule[];
   initialCustomServices: CustomService[];
+  initialModuleRequests: ModuleRequest[];
 }
 
 type TabView =
@@ -79,6 +82,7 @@ export function GroundControlApp({
   initialBoard,
   initialModules,
   initialCustomServices,
+  initialModuleRequests,
 }: GroundControlAppProps) {
   const [activeTab, setActiveTab] = useState<TabView>("today");
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -88,6 +92,7 @@ export function GroundControlApp({
   const [board, setBoard] = useState<BoardItem[]>(initialBoard);
   const [modules, setModules] = useState<GroundControlModule[]>(initialModules);
   const [customServices, setCustomServices] = useState<CustomService[]>(initialCustomServices);
+  const [moduleRequests, setModuleRequests] = useState<ModuleRequest[]>(initialModuleRequests);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
@@ -349,6 +354,12 @@ export function GroundControlApp({
     });
   };
 
+  const handleRequestModule = async (input: Omit<NewModuleRequestInput, "familyId">) => {
+    const created = await requestModuleAction({ familyId, requestedByName: currentUser.name, ...input });
+    setModuleRequests((prev) => [created, ...prev]);
+    return created;
+  };
+
   const handleRemoveDemoData = async () => {
     const result = await removeDemoDataAction(familyId);
     setEvents((prev) => prev.filter((e) => !e.isDemo));
@@ -568,6 +579,8 @@ export function GroundControlApp({
                   onSyncCustomServiceFeed={handleSyncCustomServiceFeed}
                   onDiscoverCalendarFeeds={handleDiscoverCalendarFeeds}
                   onSetCustomServicePersonIds={handleSetCustomServicePersonIds}
+                  moduleRequests={moduleRequests}
+                  onRequestModule={handleRequestModule}
                 />
               )}
             </main>

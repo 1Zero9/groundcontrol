@@ -50,6 +50,13 @@
       "when": 1788018390056,
       "tag": "0006_quiet_kitty_pryde",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788031404897,
+      "tag": "0007_shocking_human_fly",
+      "breakpoints": true
     }
   ]
 }

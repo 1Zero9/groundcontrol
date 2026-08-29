@@ -29,6 +29,11 @@ import {
   syncCustomServiceFeed,
   type NewCustomServiceInput,
 } from "../db/custom-services-queries";
+import {
+  createModuleRequest,
+  listModuleRequestsForFamily,
+  type NewModuleRequestInput,
+} from "../db/module-requests-queries";
 import { discoverCalendarFeeds } from "../src/core/calendar-discovery";
 
 export async function createEventAction(input: NewEventInput) {
@@ -165,4 +170,14 @@ export async function removeDemoDataAction(familyId: string) {
   const result = await removeDemoData(familyId);
   revalidatePath("/");
   return result;
+}
+
+export async function requestModuleAction(input: NewModuleRequestInput) {
+  const request = await createModuleRequest(input);
+  revalidatePath("/");
+  return request;
+}
+
+export async function listModuleRequestsAction(familyId: string) {
+  return listModuleRequestsForFamily(familyId);
 }

@@ -1,9 +1,11 @@
-import { asc, eq } from "drizzle-orm";
+import { randomUUID } from "crypto";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { getDb } from "./index";
-import { familyMembers, familyModules, families, modules, users } from "./schema";
+import { familyMembers, familyModules, families, moduleRequests, modules, users } from "./schema";
 import { moduleRegistry } from "../src/core/module-registry";
 import { listCustomServices, type CustomService } from "./custom-services-queries";
 import { readModuleFeeds } from "./queries";
+import type { ModuleRequest } from "./module-requests-queries";
 import type { GroundControlModule } from "../src/core/models";
 
 /**
@@ -57,8 +59,10 @@ export async function listFamiliesForAdmin(): Promise<AdminFamilySummary[]> {
     familyModuleRows.map((fm) => [`${fm.familyId}:${fm.moduleId}`, fm])
   );
 
+  const customModuleRows = moduleRows.filter((m) => m.isCustom);
+
   return familyRows.map((family) => {
-    const familyModulesList: GroundControlModule[] = moduleRegistry.map((def) => {
+    const registryModulesList: GroundControlModule[] = moduleRegistry.map((def) => {
       const dbModule = dbModuleByKey.get(def.key);
       const familyModule = dbModule
         ? familyModuleByKey.get(`${family.id}:${dbModule.id}`)
@@ -78,13 +82,37 @@ export async function listFamiliesForAdmin(): Promise<AdminFamilySummary[]> {
       };
     });
 
+    // Only include custom modules actually assigned to this family (a
+    // family_modules row exists) — matches getFamilyModules() on the family
+    // side, so admin sees exactly what the household sees.
+    const assignedCustomModules: GroundControlModule[] = customModuleRows
+      .map((dbModule) => {
+        const familyModule = familyModuleByKey.get(`${family.id}:${dbModule.id}`);
+        if (!familyModule) return undefined;
+        const config = (familyModule.config as Record<string, unknown>) ?? {};
+        const custom: GroundControlModule = {
+          id: dbModule.id,
+          key: dbModule.key,
+          name: dbModule.name,
+          description: dbModule.description ?? "",
+          enabled: familyModule.enabled,
+          isCore: false,
+          isCustom: true,
+          icon: dbModule.icon ?? undefined,
+          colour: dbModule.colour ?? undefined,
+          feeds: readModuleFeeds(config),
+        };
+        return custom;
+      })
+      .filter((m): m is GroundControlModule => m !== undefined);
+
     return {
       id: family.id,
       name: family.name,
       createdAt: family.createdAt.toISOString(),
       ownerEmail: ownerEmailByFamily.get(family.id) ?? null,
       memberNames: membersByFamily.get(family.id) ?? [],
-      modules: familyModulesList,
+      modules: [...registryModulesList, ...assignedCustomModules],
       customServices: customServicesByFamily.get(family.id) ?? [],
     };
   });
@@ -130,4 +158,178 @@ export async function resetFamilyLogin(
   } else {
     await db.insert(users).values({ familyId, email: normalizedEmail, passwordHash });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Module catalog — admin-created custom modules, and which families they've
+// been assigned to. Registry modules (src/core/module-registry.ts) aren't
+// managed here; they're already available to every family by default.
+// ---------------------------------------------------------------------------
+
+export type AdminModuleCatalogItem = {
+  id: string;
+  key: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  colour?: string;
+  createdAt: string;
+  /** Families this module has been explicitly assigned to. */
+  assignedFamilies: { familyId: string; familyName: string }[];
+};
+
+export async function listModuleCatalogForAdmin(): Promise<AdminModuleCatalogItem[]> {
+  const db = getDb();
+  const [customModuleRows, familyModuleRows, familyRows] = await Promise.all([
+    db.select().from(modules).where(eq(modules.isCustom, true)),
+    db.select().from(familyModules),
+    db.select({ id: families.id, name: families.name }).from(families),
+  ]);
+
+  const familyNameById = new Map(familyRows.map((f) => [f.id, f.name]));
+  const assignedFamiliesByModuleId = new Map<string, { familyId: string; familyName: string }[]>();
+  for (const fm of familyModuleRows) {
+    const familyName = familyNameById.get(fm.familyId);
+    if (!familyName) continue;
+    const list = assignedFamiliesByModuleId.get(fm.moduleId) ?? [];
+    list.push({ familyId: fm.familyId, familyName });
+    assignedFamiliesByModuleId.set(fm.moduleId, list);
+  }
+
+  return customModuleRows
+    .map((m) => ({
+      id: m.id,
+      key: m.key,
+      name: m.name,
+      description: m.description ?? undefined,
+      icon: m.icon ?? undefined,
+      colour: m.colour ?? undefined,
+      createdAt: m.createdAt.toISOString(),
+      assignedFamilies: (assignedFamiliesByModuleId.get(m.id) ?? []).sort((a, b) =>
+        a.familyName.localeCompare(b.familyName)
+      ),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export type NewCustomModuleInput = {
+  name: string;
+  description?: string;
+  icon?: string;
+  colour?: string;
+};
+
+/**
+ * Creates a brand-new module type at runtime (no code change / deploy
+ * needed). Generates its own unique `key` slug since custom modules don't
+ * correspond to anything in src/core/module-registry.ts. Not assigned to
+ * any family yet — that's a separate step (see setCustomModuleAssignment).
+ */
+export async function createCustomModule(
+  input: NewCustomModuleInput
+): Promise<AdminModuleCatalogItem> {
+  const db = getDb();
+  const key = `custom-${randomUUID().slice(0, 8)}`;
+  const [row] = await db
+    .insert(modules)
+    .values({
+      key,
+      name: input.name.trim(),
+      description: input.description?.trim() || undefined,
+      icon: input.icon,
+      colour: input.colour,
+      isCustom: true,
+    })
+    .returning();
+
+  return {
+    id: row.id,
+    key: row.key,
+    name: row.name,
+    description: row.description ?? undefined,
+    icon: row.icon ?? undefined,
+    colour: row.colour ?? undefined,
+    createdAt: row.createdAt.toISOString(),
+    assignedFamilies: [],
+  };
+}
+
+/** Deleting a custom module cascades to remove any family_modules assignment rows. */
+export async function deleteCustomModule(moduleId: string): Promise<void> {
+  const db = getDb();
+  await db.delete(modules).where(and(eq(modules.id, moduleId), eq(modules.isCustom, true)));
+}
+
+/**
+ * Assigns or unassigns a custom module to a family — presence of a
+ * `family_modules` row is what makes it appear at all for that family (see
+ * getFamilyModules() in db/queries.ts). Unassigning deletes the row rather
+ * than just disabling it, since "not assigned" and "assigned but off" are
+ * different things for custom modules.
+ */
+export async function setCustomModuleAssignment(
+  moduleId: string,
+  familyId: string,
+  assigned: boolean
+): Promise<void> {
+  const db = getDb();
+  if (assigned) {
+    await db
+      .insert(familyModules)
+      .values({ familyId, moduleId, enabled: true })
+      .onConflictDoNothing({ target: [familyModules.familyId, familyModules.moduleId] });
+  } else {
+    await db
+      .delete(familyModules)
+      .where(and(eq(familyModules.familyId, familyId), eq(familyModules.moduleId, moduleId)));
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Module requests — admin side (review queue). See db/module-requests-queries.ts
+// for the family-facing half (submitting a request, viewing your own).
+// ---------------------------------------------------------------------------
+
+export type AdminModuleRequest = ModuleRequest & { familyName: string };
+
+function mapModuleRequestRow(
+  row: typeof moduleRequests.$inferSelect,
+  familyName: string
+): AdminModuleRequest {
+  return {
+    id: row.id,
+    familyId: row.familyId,
+    familyName,
+    requestedByName: row.requestedByName ?? undefined,
+    title: row.title,
+    reason: row.reason ?? undefined,
+    status: row.status,
+    adminNote: row.adminNote ?? undefined,
+    createdAt: row.createdAt.toISOString(),
+    resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : undefined,
+  };
+}
+
+export async function listModuleRequestsForAdmin(): Promise<AdminModuleRequest[]> {
+  const db = getDb();
+  const [requestRows, familyRows] = await Promise.all([
+    db.select().from(moduleRequests).orderBy(desc(moduleRequests.createdAt)),
+    db.select({ id: families.id, name: families.name }).from(families),
+  ]);
+  const familyNameById = new Map(familyRows.map((f) => [f.id, f.name]));
+  return requestRows.map((row) =>
+    mapModuleRequestRow(row, familyNameById.get(row.familyId) ?? "Unknown household")
+  );
+}
+
+export async function resolveModuleRequest(
+  requestId: string,
+  status: "approved" | "declined",
+  adminNote?: string
+): Promise<void> {
+  const db = getDb();
+  await db
+    .update(moduleRequests)
+    .set({ status, adminNote: adminNote?.trim() || undefined, resolvedAt: new Date() })
+    .where(eq(moduleRequests.id, requestId));
 }

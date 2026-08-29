@@ -15,19 +15,32 @@ import {
   ChevronDown,
   ChevronRight,
   Users,
+  Blocks,
+  CheckCircle2,
+  Clock,
+  Inbox,
+  XCircle,
 } from "lucide-react";
 import type { GroundControlModule, ModuleFeed } from "../../src/core/models";
-import type { AdminFamilySummary } from "../../db/admin-queries";
+import type {
+  AdminFamilySummary,
+  AdminModuleCatalogItem,
+  AdminModuleRequest,
+} from "../../db/admin-queries";
 import type { CustomService } from "../../db/custom-services-queries";
 import {
+  adminCreateCustomModuleAction,
   adminCreateCustomServiceAction,
+  adminDeleteCustomModuleAction,
   adminDeleteCustomServiceAction,
   adminDiscoverCalendarFeedsAction,
   adminRemoveModuleFeedAction,
   adminRenameFamilyAction,
   adminResetFamilyLoginAction,
+  adminResolveModuleRequestAction,
   adminSaveCustomServiceFeedUrlAction,
   adminSaveModuleFeedAction,
+  adminSetCustomModuleAssignmentAction,
   adminSetModuleEnabledAction,
   adminSyncCustomServiceFeedAction,
   adminSyncModuleFeedAction,
@@ -42,6 +55,8 @@ import { adminLogoutAction } from "../../lib/auth/admin-actions";
 
 interface AdminViewProps {
   families: AdminFamilySummary[];
+  moduleCatalog: AdminModuleCatalogItem[];
+  moduleRequests: AdminModuleRequest[];
 }
 
 function AdminModuleFeedItem({
@@ -592,6 +607,340 @@ function AdminAddServiceForm({
   );
 }
 
+function AdminCreateModuleForm({
+  onCreated,
+}: {
+  onCreated: (item: AdminModuleCatalogItem) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [icon, setIcon] = useState("");
+  const [colour, setColour] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleCreate = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setIsSaving(true);
+    try {
+      const created = await adminCreateCustomModuleAction({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        icon: icon.trim() || undefined,
+        colour: colour.trim() || undefined,
+      });
+      onCreated(created);
+      setName("");
+      setDescription("");
+      setIcon("");
+      setColour("");
+      setIsOpen(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (!isOpen) {
+    return (
+      <button type="button" className="add-service-btn" onClick={() => setIsOpen(true)}>
+        <Plus size={16} /> New module
+      </button>
+    );
+  }
+
+  return (
+    <form className="add-service-form" onSubmit={handleCreate}>
+      <div className="form-field-group">
+        <input
+          type="text"
+          className="add-service-input"
+          placeholder="Module name, e.g. Music lessons"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          required
+        />
+      </div>
+      <div className="form-field-group">
+        <input
+          type="text"
+          className="add-service-input"
+          placeholder="Short description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+      </div>
+      <div className="module-feed-input-row">
+        <input
+          type="text"
+          className="add-service-input"
+          placeholder="Icon (emoji, optional)"
+          value={icon}
+          onChange={(e) => setIcon(e.target.value)}
+        />
+        <input
+          type="text"
+          className="add-service-input"
+          placeholder="Colour, e.g. #6C63FF (optional)"
+          value={colour}
+          onChange={(e) => setColour(e.target.value)}
+        />
+      </div>
+      <div className="module-feed-input-row">
+        <button type="submit" className="add-service-btn" disabled={isSaving || !name.trim()}>
+          <Plus size={16} />
+          {isSaving ? "Creating…" : "Create module"}
+        </button>
+        <button type="button" className="feed-cancel-btn" onClick={() => setIsOpen(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function AdminModuleCatalogItemRow({
+  item,
+  families,
+  onDeleted,
+}: {
+  item: AdminModuleCatalogItem;
+  families: AdminFamilySummary[];
+  onDeleted: (id: string) => void;
+}) {
+  const [assignedFamilies, setAssignedFamilies] = useState(item.assignedFamilies);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const assignedIds = new Set(assignedFamilies.map((f) => f.familyId));
+
+  const handleToggleAssign = async (familyId: string, familyName: string, assign: boolean) => {
+    const previous = assignedFamilies;
+    setAssignedFamilies((prev) =>
+      assign
+        ? [...prev, { familyId, familyName }]
+        : prev.filter((f) => f.familyId !== familyId)
+    );
+    try {
+      await adminSetCustomModuleAssignmentAction(item.id, familyId, assign);
+    } catch (err) {
+      console.error("Failed to update module assignment", err);
+      setAssignedFamilies(previous);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await adminDeleteCustomModuleAction(item.id);
+      onDeleted(item.id);
+    } catch (err) {
+      console.error("Failed to delete module", err);
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <div className="module-card module-card-column">
+      <div className="module-card-top-row">
+        <div className="module-card-left">
+          <span className="module-card-icon">{item.icon || "🧩"}</span>
+          <div className="module-card-info">
+            <strong className="module-card-name">{item.name}</strong>
+            {item.description && <span className="module-card-desc">{item.description}</span>}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="custom-service-delete-btn"
+          onClick={handleDelete}
+          disabled={isDeleting}
+          aria-label={`Delete ${item.name}`}
+          title="Delete this module"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+
+      <div className="module-feeds-list">
+        <p className="module-feed-label">
+          <Users size={13} /> Assigned to
+        </p>
+        <div className="admin-module-assign-list">
+          {families.map((family) => (
+            <label key={family.id} className="admin-module-assign-item">
+              <input
+                type="checkbox"
+                checked={assignedIds.has(family.id)}
+                onChange={(e) => handleToggleAssign(family.id, family.name, e.target.checked)}
+              />
+              {family.name}
+            </label>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminModuleCatalogSection({
+  moduleCatalog,
+  families,
+}: {
+  moduleCatalog: AdminModuleCatalogItem[];
+  families: AdminFamilySummary[];
+}) {
+  const [items, setItems] = useState(moduleCatalog);
+
+  return (
+    <section className="admin-section admin-module-catalog-section">
+      <h2 className="admin-section-title">
+        <Blocks size={17} /> Module catalog
+      </h2>
+      <p className="admin-section-sub">
+        Create custom modules and assign them to specific households. Assigned modules appear
+        for that family alongside the built-in modules.
+      </p>
+
+      <div className="modules-list">
+        {items.map((item) => (
+          <AdminModuleCatalogItemRow
+            key={item.id}
+            item={item}
+            families={families}
+            onDeleted={(id) => setItems((prev) => prev.filter((m) => m.id !== id))}
+          />
+        ))}
+      </div>
+
+      <AdminCreateModuleForm onCreated={(created) => setItems((prev) => [...prev, created])} />
+    </section>
+  );
+}
+
+function AdminModuleRequestItem({
+  request,
+  onResolved,
+}: {
+  request: AdminModuleRequest;
+  onResolved: (id: string, status: "approved" | "declined", adminNote?: string) => void;
+}) {
+  const [note, setNote] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleResolve = async (status: "approved" | "declined") => {
+    setIsSaving(true);
+    try {
+      await adminResolveModuleRequestAction(request.id, status, note.trim() || undefined);
+      onResolved(request.id, status, note.trim() || undefined);
+    } catch (err) {
+      console.error("Failed to resolve module request", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="admin-request-item">
+      <div className="admin-request-item-top">
+        <div>
+          <strong className="module-card-name">{request.title}</strong>
+          <span className="admin-request-meta">
+            {" "}
+            — {request.familyName} · requested by {request.requestedByName}
+          </span>
+        </div>
+        {request.status === "pending" && <Clock size={16} />}
+        {request.status === "approved" && <CheckCircle2 size={16} />}
+        {request.status === "declined" && <XCircle size={16} />}
+      </div>
+      {request.reason && <p className="module-card-desc">{request.reason}</p>}
+      <p className="module-feed-status">
+        {new Date(request.createdAt).toLocaleDateString()}
+        {request.adminNote ? ` · Note: ${request.adminNote}` : ""}
+      </p>
+
+      {request.status === "pending" && (
+        <div className="admin-request-actions">
+          <input
+            type="text"
+            className="add-service-input"
+            placeholder="Optional note to the family"
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <button
+            type="button"
+            className="module-sync-btn"
+            onClick={() => handleResolve("approved")}
+            disabled={isSaving}
+          >
+            <CheckCircle2 size={14} /> Approve
+          </button>
+          <button
+            type="button"
+            className="feed-cancel-btn"
+            onClick={() => handleResolve("declined")}
+            disabled={isSaving}
+          >
+            <XCircle size={14} /> Decline
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminModuleRequestsSection({
+  moduleRequests,
+}: {
+  moduleRequests: AdminModuleRequest[];
+}) {
+  const [requests, setRequests] = useState(moduleRequests);
+  const pending = requests.filter((r) => r.status === "pending");
+  const resolved = requests.filter((r) => r.status !== "pending");
+
+  const handleResolved = (id: string, status: "approved" | "declined", adminNote?: string) => {
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? { ...r, status, adminNote: adminNote ?? r.adminNote, resolvedAt: new Date().toISOString() }
+          : r
+      )
+    );
+  };
+
+  return (
+    <section className="admin-section admin-requests-section">
+      <h2 className="admin-section-title">
+        <Inbox size={17} /> Module requests
+      </h2>
+      <p className="admin-section-sub">
+        Families can ask for a module they&apos;d like. Approve or decline here, then create and
+        assign the module in the catalog above.
+      </p>
+
+      {pending.length === 0 && resolved.length === 0 && (
+        <p className="admin-no-results">No requests yet.</p>
+      )}
+
+      {pending.length > 0 && (
+        <div className="modules-list">
+          {pending.map((req) => (
+            <AdminModuleRequestItem key={req.id} request={req} onResolved={handleResolved} />
+          ))}
+        </div>
+      )}
+
+      {resolved.length > 0 && (
+        <div className="modules-list">
+          {resolved.map((req) => (
+            <AdminModuleRequestItem key={req.id} request={req} onResolved={handleResolved} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AdminFamilyCard({
   family,
   isOpen,
@@ -770,7 +1119,7 @@ function AdminFamilyCard({
   );
 }
 
-export function AdminView({ families }: AdminViewProps) {
+export function AdminView({ families, moduleCatalog, moduleRequests }: AdminViewProps) {
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -804,6 +1153,10 @@ export function AdminView({ families }: AdminViewProps) {
           </button>
         </form>
       </header>
+
+      <AdminModuleRequestsSection moduleRequests={moduleRequests} />
+
+      <AdminModuleCatalogSection moduleCatalog={moduleCatalog} families={families} />
 
       <div className="admin-toolbar-row">
         <div className="admin-search-wrap">

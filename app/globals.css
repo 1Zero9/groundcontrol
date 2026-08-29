@@ -3000,6 +3000,90 @@ input, textarea, select {
   }
 }
 
+.module-request-section {
+  margin-top: 30px;
+  padding-top: 22px;
+  border-top: 1px solid var(--line);
+}
+
+.module-request-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.module-request-textarea {
+  width: 100%;
+  min-height: 72px;
+  resize: vertical;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.module-request-textarea:focus {
+  border-color: var(--purple);
+}
+
+.module-requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.module-request-item {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.module-request-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.module-request-admin-note {
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--ink-secondary);
+  margin: 4px 0;
+}
+
+.module-request-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+
+.module-request-status-pill.is-pending {
+  background: var(--amber-soft);
+  color: #8A5A00;
+}
+
+.module-request-status-pill.is-approved {
+  background: var(--mint-soft);
+  color: var(--mint-dark);
+}
+
+.module-request-status-pill.is-declined {
+  background: var(--pink-soft);
+  color: var(--pink);
+}
+
 /* ==========================================================================
    ADMIN CONSOLE (/admin — operator-only, connector management)
    ========================================================================== */
@@ -3287,6 +3371,82 @@ input, textarea, select {
   font-weight: 700;
   color: var(--ink);
   margin-bottom: 10px;
+}
+
+.admin-section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow-sm);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.admin-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.admin-section-sub {
+  font-size: 12.5px;
+  color: var(--muted);
+  max-width: 64ch;
+  margin: 4px 0 14px;
+}
+
+.admin-module-assign-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 4px;
+}
+
+.admin-module-assign-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  cursor: pointer;
+}
+
+.admin-request-item {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.admin-request-item-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-request-meta {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.admin-request-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.admin-request-actions .add-service-input {
+  flex: 1;
+  min-width: 160px;
 }
 
 /* ==========================================================================

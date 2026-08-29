@@ -4,20 +4,26 @@ import React, { useState } from "react";
 import {
   ArrowLeft,
   CalendarDays,
+  CheckCircle2,
+  Clock,
   GraduationCap,
   HeartPulse,
   Link as LinkIcon,
   Lock,
+  MessageSquarePlus,
   Pin,
   Plus,
   Receipt,
   RefreshCw,
   Search,
+  Send,
   Trash2,
   Trophy,
+  XCircle,
 } from "lucide-react";
 import type { FamilyMember, GroundControlModule, ModuleFeed } from "../../src/core/models";
 import type { CustomService } from "../../db/custom-services-queries";
+import type { ModuleRequest, NewModuleRequestInput } from "../../db/module-requests-queries";
 import { MemberAvatarContent } from "./member-avatar";
 
 interface SyncResult {
@@ -50,6 +56,8 @@ interface ModulesViewProps {
   onSyncCustomServiceFeed: (id: string) => Promise<SyncResult>;
   onDiscoverCalendarFeeds: (pageUrl: string) => Promise<string[]>;
   onSetCustomServicePersonIds: (id: string, personIds: string[]) => void;
+  moduleRequests: ModuleRequest[];
+  onRequestModule: (input: Omit<NewModuleRequestInput, "familyId">) => Promise<ModuleRequest>;
 }
 
 const MODULE_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
@@ -611,6 +619,125 @@ function AddServiceForm({
   );
 }
 
+function RequestStatusPill({ status }: { status: ModuleRequest["status"] }) {
+  if (status === "approved") {
+    return (
+      <span className="module-request-status-pill is-approved">
+        <CheckCircle2 size={13} /> Approved
+      </span>
+    );
+  }
+  if (status === "declined") {
+    return (
+      <span className="module-request-status-pill is-declined">
+        <XCircle size={13} /> Declined
+      </span>
+    );
+  }
+  return (
+    <span className="module-request-status-pill is-pending">
+      <Clock size={13} /> Pending review
+    </span>
+  );
+}
+
+function RequestModuleSection({
+  moduleRequests,
+  onRequestModule,
+}: {
+  moduleRequests: ModuleRequest[];
+  onRequestModule: (input: Omit<NewModuleRequestInput, "familyId">) => Promise<ModuleRequest>;
+}) {
+  const [title, setTitle] = useState("");
+  const [reason, setReason] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setIsSaving(true);
+    setMessage(null);
+    try {
+      await onRequestModule({ title: title.trim(), reason: reason.trim() || undefined });
+      setTitle("");
+      setReason("");
+      setMessage("Thanks — your request has been sent to the Ground Control team.");
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Couldn't send your request — try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <section className="modules-section module-request-section">
+      <h2 className="section-heading-title">
+        <MessageSquarePlus size={18} /> Request a module
+      </h2>
+      <p className="section-heading-sub">
+        Don&apos;t see something your family needs? Tell us what you&apos;re after and why —
+        we review every request and reach out once it&apos;s ready.
+      </p>
+
+      <form className="module-request-form" onSubmit={handleSubmit}>
+        <div className="form-field-group">
+          <label className="module-feed-label" htmlFor="request-module-title">
+            What would you like?
+          </label>
+          <input
+            id="request-module-title"
+            type="text"
+            className="add-service-input"
+            placeholder="e.g., Meal planner, Chore rota, Homework tracker"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+        </div>
+        <div className="form-field-group">
+          <label className="module-feed-label" htmlFor="request-module-reason">
+            Why would it help? (optional)
+          </label>
+          <textarea
+            id="request-module-reason"
+            className="add-service-input module-request-textarea"
+            placeholder="Tell us a bit about how your family would use it"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+          />
+        </div>
+        <button type="submit" className="add-service-btn" disabled={isSaving || !title.trim()}>
+          <Send size={16} />
+          {isSaving ? "Sending…" : "Send request"}
+        </button>
+        {message && <p className="module-feed-status">{message}</p>}
+      </form>
+
+      {moduleRequests.length > 0 && (
+        <div className="module-requests-list">
+          {moduleRequests.map((req) => (
+            <div key={req.id} className="module-request-item">
+              <div className="module-request-item-top">
+                <strong className="module-card-name">{req.title}</strong>
+                <RequestStatusPill status={req.status} />
+              </div>
+              {req.reason && <p className="module-card-desc">{req.reason}</p>}
+              {req.adminNote && (
+                <p className="module-request-admin-note">Ground Control: {req.adminNote}</p>
+              )}
+              <p className="module-feed-status">
+                Requested {new Date(req.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function ModulesView({
   modules,
   family,
@@ -627,6 +754,8 @@ export function ModulesView({
   onSyncCustomServiceFeed,
   onDiscoverCalendarFeeds,
   onSetCustomServicePersonIds,
+  moduleRequests,
+  onRequestModule,
 }: ModulesViewProps) {
   const coreModules = modules.filter((m) => m.isCore);
   const optionalModules = modules.filter((m) => !m.isCore);
@@ -751,6 +880,8 @@ export function ModulesView({
           onDiscoverCalendarFeeds={onDiscoverCalendarFeeds}
         />
       </section>
+
+      <RequestModuleSection moduleRequests={moduleRequests} onRequestModule={onRequestModule} />
     </div>
   );
 }

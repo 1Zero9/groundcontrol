@@ -400,9 +400,13 @@ export async function removeBoardItem(id: string): Promise<void> {
 
 /**
  * Merges the code-level module registry (name/description/icon/isCore) with
- * this family's `family_modules` rows (enabled/disabled). A module the
- * family has never toggled simply defaults to on for core modules, off for
- * everything else — matching what `createFamilyWithOwner` seeds for new
+ * this family's `family_modules` rows (enabled/disabled), then appends any
+ * admin-created custom modules (`modules.isCustom = true`) that have been
+ * explicitly assigned to this family — i.e. a `family_modules` row exists
+ * for them. Unlike registry modules (available to every family by default),
+ * a custom module simply doesn't appear at all until assigned. A registry
+ * module the family has never toggled defaults to on for core modules, off
+ * for everything else — matching what `createFamilyWithOwner` seeds for new
  * signups.
  */
 export async function getFamilyModules(familyId: string): Promise<GroundControlModule[]> {
@@ -419,7 +423,7 @@ export async function getFamilyModules(familyId: string): Promise<GroundControlM
   const dbModuleByKey = new Map(moduleRows.map((m) => [m.key, m]));
   const familyModuleByModuleId = new Map(familyModuleRows.map((fm) => [fm.moduleId, fm]));
 
-  return moduleRegistry.map((def) => {
+  const registryModules: GroundControlModule[] = moduleRegistry.map((def) => {
     const dbModule = dbModuleByKey.get(def.key);
     const familyModule = dbModule ? familyModuleByModuleId.get(dbModule.id) : undefined;
     const enabled = familyModule ? familyModule.enabled : def.isCore;
@@ -442,6 +446,38 @@ export async function getFamilyModules(familyId: string): Promise<GroundControlM
       visibleToMemberIds,
     };
   });
+
+  const customModules: GroundControlModule[] = moduleRows
+    .filter((m) => m.isCustom)
+    .map((dbModule) => {
+      const familyModule = familyModuleByModuleId.get(dbModule.id);
+      if (!familyModule) return undefined;
+
+      const enabled = familyModule.enabled;
+      const config = (familyModule.config as Record<string, unknown>) ?? {};
+      const visibleToMemberIds = Array.isArray(config.visibleToMemberIds)
+        ? (config.visibleToMemberIds as string[])
+        : undefined;
+
+      const custom: GroundControlModule = {
+        id: dbModule.id,
+        key: dbModule.key,
+        name: dbModule.name,
+        description: dbModule.description ?? "",
+        enabled,
+        isCore: false,
+        isCustom: true,
+        status: enabled ? "installed" : "available",
+        icon: dbModule.icon ?? undefined,
+        colour: dbModule.colour ?? undefined,
+        feeds: readModuleFeeds(config),
+        visibleToMemberIds,
+      };
+      return custom;
+    })
+    .filter((m): m is GroundControlModule => m !== undefined);
+
+  return [...registryModules, ...customModules];
 }
 
 /**
