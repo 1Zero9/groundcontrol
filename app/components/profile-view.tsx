@@ -1,7 +1,21 @@
 "use client";
 
 import React from "react";
-import { Blocks, Check, ShieldCheck, User, Sparkles, LogOut, LayoutDashboard, Moon, Sun, UserPlus, Pencil } from "lucide-react";
+import {
+  Blocks,
+  Check,
+  HelpCircle,
+  Link2,
+  LogOut,
+  LayoutDashboard,
+  Moon,
+  Pencil,
+  ShieldCheck,
+  Sparkles,
+  Sun,
+  User,
+  UserPlus,
+} from "lucide-react";
 import type { FamilyMember, Event, BoardItem } from "../../src/core/models";
 import { logoutAction } from "../../lib/auth/actions";
 import { SiteFooter } from "./site-footer";
@@ -17,7 +31,10 @@ interface ProfileViewProps {
   onOpenModules: () => void;
   onOpenKitchen: () => void;
   onOpenAddMember: () => void;
+  onOpenEditMember: (member: FamilyMember) => void;
+  onOpenInviteMember: (member: FamilyMember) => void;
   onOpenEditAvatar: () => void;
+  onOpenHelp: () => void;
   isDarkMode: boolean;
   onToggleDarkMode: () => void;
 }
@@ -32,7 +49,10 @@ export function ProfileView({
   onOpenModules,
   onOpenKitchen,
   onOpenAddMember,
+  onOpenEditMember,
+  onOpenInviteMember,
   onOpenEditAvatar,
+  onOpenHelp,
   isDarkMode,
   onToggleDarkMode,
 }: ProfileViewProps) {
@@ -40,6 +60,7 @@ export function ProfileView({
   const userNotes = board.filter(
     (b) => !b.personIds || b.personIds.includes(currentUser.id)
   );
+  const canManageFamily = currentUser.role === "adult";
 
   return (
     <div className="screen profile-screen">
@@ -99,7 +120,7 @@ export function ProfileView({
               Switch active view or see what everyone is up to
             </p>
           </div>
-          {currentUser.role === "adult" && (
+          {canManageFamily && (
             <button
               type="button"
               className="add-member-btn"
@@ -119,13 +140,22 @@ export function ProfileView({
               e.personIds.includes(member.id)
             );
             const nextEvt = memberEvents[0];
+            const canConnect =
+              canManageFamily && member.role !== "pet" && !member.hasAccount;
 
             return (
-              <button
+              <div
                 key={member.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 className={`family-member-card ${isCurrent ? "is-active-member" : ""}`}
                 onClick={() => onSelectUser(member)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSelectUser(member);
+                  }
+                }}
               >
                 <div className="member-card-left">
                   <span
@@ -151,17 +181,53 @@ export function ProfileView({
                   </div>
                 </div>
 
-                <div className="member-card-right">
+                <div className="member-card-actions">
+                  {canManageFamily && (
+                    <button
+                      type="button"
+                      className="member-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenEditMember(member);
+                      }}
+                      aria-label={`Edit ${member.name}`}
+                      title={`Edit ${member.name}`}
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  )}
+
+                  {canConnect && (
+                    <button
+                      type="button"
+                      className="member-action-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenInviteMember(member);
+                      }}
+                      aria-label={`Send login link to ${member.name}`}
+                      title={`Send login link to ${member.name}`}
+                    >
+                      <Link2 size={13} />
+                    </button>
+                  )}
+
+                  {canManageFamily && member.hasAccount && (
+                    <span className="member-connected-badge" title="Has their own login">
+                      <Check size={11} strokeWidth={3} /> Connected
+                    </span>
+                  )}
+
                   <span
                     className="member-color-indicator"
                     style={{ backgroundColor: member.colour }}
                   />
                 </div>
-              </button>
+              </div>
             );
           })}
 
-          {currentUser.role === "adult" && (
+          {canManageFamily && (
             <button type="button" className="add-member-card" onClick={onOpenAddMember}>
               <UserPlus size={18} />
               Add family member
@@ -199,7 +265,7 @@ export function ProfileView({
         </button>
       </div>
 
-      {/* Kitchen display + theme */}
+      {/* Kitchen display + theme + help */}
       <div className="logout-form profile-secondary-actions">
         <button
           type="button"
@@ -216,6 +282,10 @@ export function ProfileView({
         >
           {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           {isDarkMode ? "Switch to light theme" : "Switch to dark theme"}
+        </button>
+        <button type="button" className="manage-modules-btn" onClick={onOpenHelp}>
+          <HelpCircle size={16} />
+          Help
         </button>
       </div>
 

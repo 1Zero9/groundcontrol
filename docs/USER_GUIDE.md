@@ -59,6 +59,7 @@ Tap a task to check it off; use the **+** button to add something new.
   switch to their view
 - Your mission stats (events this week, notes & tasks)
 - **Manage modules** — turn optional features on/off (see below)
+- **Help** — a quick guide to every screen (see [Help](#help) below)
 - **Log out**
 
 ---
@@ -89,6 +90,42 @@ own next event, their own tasks and notes.
 
 ---
 
+## Editing a family member
+
+On the **Profile** screen, each family member's card has a small pencil
+button (parents/commanders only). Tap it to change that person's name,
+role, avatar icon, or colour, then tap **Save**.
+
+---
+
+## Letting a family member connect their own login
+
+By default, everyone in the household signs in with the same shared
+email/password. If someone — a teenager, say — wants their **own** personal
+login on their own phone instead:
+
+1. Go to **Profile**, find their card, and tap the **link icon**.
+2. Ground Control generates a shareable link and shows a **Copy link**
+   button. Share it however you like — text message, AirDrop, etc.
+3. They open the link on their own device, choose an email and password,
+   and tap **Connect to Ground Control**.
+4. They're instantly signed in under their own login, seeing the same
+   family calendar, board, and modules as everyone else.
+
+The link expires after **3 days**, and only works once — after someone
+connects, their card shows a **Connected** badge instead of the link
+button.
+
+---
+
+## Help
+
+Tap **Help** on the **Profile** screen for a quick, illustrated walkthrough
+of every screen and icon in Ground Control — handy for a first-time family
+member or anyone who forgets what a button does.
+
+---
+
 ## Managing modules
 
 Ground Control is modular — not every household needs every feature.
@@ -103,6 +140,27 @@ Ground Control is modular — not every household needs every feature.
    - **Life** — health, chores, shopping and everyday household stuff
 
 Changes apply to everyone in the household immediately.
+
+### Connecting a calendar feed
+
+Modules like Sports and School can sync events automatically from a
+calendar link (the kind of link a club, league or school gives out, often
+starting with `webcal://` or ending in `.ics`):
+
+1. In **Manage modules**, open a module and paste the feed link in, then
+   tap **Sync now**.
+2. Need more than one — say, one kid's football fixtures and another's
+   swimming? Add another feed with its own label; each syncs and can be
+   removed independently.
+3. Only have a website link, not the exact calendar link? Try **Find a
+   calendar from a website** — paste in the site's normal web address and
+   Ground Control will suggest any calendar links it can find on it.
+
+### Your services
+
+For anything that isn't Sports/School/Life — a college timetable, a
+one-off club — add it under **Your services** instead. Give it a name and
+(optionally) a calendar feed link, and it works the same way.
 
 ---
 

@@ -2,9 +2,15 @@
 
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { createFamilyWithOwner, getUserByEmail } from "../../db/auth-queries";
+import {
+  assertMemberInviteEligible,
+  claimFamilyMemberInvite,
+  createFamilyWithOwner,
+  getUserByEmail,
+} from "../../db/auth-queries";
 import { hashPassword, verifyPassword } from "./password";
-import { clearSessionCookie, setSessionCookie } from "./session";
+import { clearSessionCookie, getSession, setSessionCookie } from "./session";
+import { createMemberInviteToken, verifyMemberInviteToken } from "./member-invite";
 
 function redirectWithError(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -73,4 +79,70 @@ export async function loginAction(formData: FormData) {
 export async function logoutAction() {
   await clearSessionCookie();
   redirect("/login");
+}
+
+/**
+ * Generates a shareable "connect to the app" link for a family member who
+ * doesn't have their own login yet (e.g. a teen who wants their own phone
+ * access). Only a signed-in family member of the same family can generate
+ * one, and only for a member that doesn't already have an account.
+ */
+export async function generateMemberInviteLinkAction(memberId: string): Promise<string> {
+  const session = await getSession();
+  if (!session) {
+    throw new Error("You must be signed in to do that.");
+  }
+  await assertMemberInviteEligible(session.familyId, memberId);
+  return createMemberInviteToken({ familyId: session.familyId, memberId });
+}
+
+const claimInviteSchema = z.object({
+  token: z.string().min(1, "Missing invite link"),
+  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export async function claimMemberInviteAction(formData: FormData) {
+  const parsed = claimInviteSchema.safeParse({
+    token: formData.get("token"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+
+  if (!parsed.success) {
+    redirectWithError("/invite", parsed.error.issues[0]?.message ?? "Invalid input");
+  }
+
+  const invite = verifyMemberInviteToken(parsed.data.token);
+  if (!invite) {
+    redirectWithError("/invite", "This invite link is invalid or has expired.");
+  }
+
+  const existing = await getUserByEmail(parsed.data.email);
+  if (existing) {
+    redirectWithError(
+      `/invite?token=${encodeURIComponent(parsed.data.token)}`,
+      "An account with that email already exists."
+    );
+  }
+
+  const passwordHash = hashPassword(parsed.data.password);
+
+  let user: Awaited<ReturnType<typeof claimFamilyMemberInvite>>["user"];
+  try {
+    ({ user } = await claimFamilyMemberInvite({
+      familyId: invite.familyId,
+      memberId: invite.memberId,
+      email: parsed.data.email,
+      passwordHash,
+    }));
+  } catch (err) {
+    redirectWithError(
+      "/invite",
+      err instanceof Error ? err.message : "Couldn't connect this profile."
+    );
+  }
+
+  await setSessionCookie({ userId: user.id, familyId: invite.familyId });
+  redirect("/");
 }

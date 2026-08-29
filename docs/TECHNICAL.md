@@ -33,9 +33,11 @@ app/
   page.tsx                 Home route — session-gated, loads family data (Server Component)
   layout.tsx                Root layout, fonts, viewport
   manifest.ts                PWA manifest
-  actions.ts                 Server Actions for events/board items/modules
+  actions.ts                 Server Actions for events/board items/modules/family members
   login/page.tsx             Login screen (family)
   signup/page.tsx            Signup screen (family)
+  invite/page.tsx            /invite — a family member claims their own login via a shared link (see §5)
+  privacy/page.tsx, terms/page.tsx  Static legal pages linked from the auth screens
   admin/
     login/page.tsx           /admin/login — "Continue with Google" button, not a family login
     auth/google/route.ts     Starts Google OAuth (sets CSRF state cookie, redirects to Google)
@@ -47,29 +49,40 @@ app/
     today-view.tsx           "Today" tab
     week-view.tsx             "My week" tab
     remember-board-view.tsx  "Remember" (sticky notes / tasks) tab
-    profile-view.tsx          "Profile" tab — switch member, logout, manage modules
+    profile-view.tsx          "Profile" tab — switch member, edit/invite members, Help entry point, logout
     modules-view.tsx          Module marketplace (enable/disable modules, configure connectors)
+    help-view.tsx              Basic in-app Help screen (icon-pack-illustrated guide to each screen)
+    add-modal.tsx              "Add" bottom sheet (event / task / note / reminder)
+    add-member-modal.tsx      Add **and edit** a family member (name/role/avatar/colour) — shared modal
+    invite-link-modal.tsx     Generates and shares a "connect to the app" login link for a family member
+    edit-avatar-modal.tsx     Change the current user's own avatar icon
     admin-view.tsx             /admin console UI (family list + per-family connector config)
     kitchen-display-view.tsx Kitchen wall-display mode (tablet/TV layout)
-    add-modal.tsx              "Add" bottom sheet (event / task / note / reminder)
-    cosmic-illustrations.tsx  Decorative SVG illustrations (Saturn, starfield, pushpin, badges)
+    auth-shell.tsx              Shared cosmic-themed shell/card wrapper for login/signup/admin-login/invite
+    password-field.tsx          Reusable show/hide password `<input>` used by all auth forms
+    member-avatar.tsx           Renders a family member's avatar icon (or initial) consistently
+    event-icon.tsx               Resolves a category → icon mapping for event/board item cards
+    cosmic-illustrations.tsx  Decorative SVG illustrations (Saturn, starfield, pushpin, rocket, badges)
+    site-footer.tsx              Shared footer (privacy/terms links) for the auth screens
   globals.css                 All application styling (theme tokens, per-screen sections)
 
 db/
   schema.ts                   Drizzle table definitions + relations
   index.ts                     DB client (pg Pool via drizzle-orm/node-postgres)
-  queries.ts                   Core data-access layer (events, board items, modules, connector sync)
+  queries.ts                   Core data-access layer (events, board items, modules, connector sync, family members)
   auth-queries.ts              Auth-specific queries (getUserByEmail, getUserById, createFamilyWithOwner)
   admin-auth-queries.ts          Auth queries for the standalone `admins` table — Google-profile upsert (see §9)
   admin-queries.ts              Admin-only queries — families/modules/config, NEVER events/board (see §9)
+  custom-services-queries.ts    Family-defined ad-hoc "services" (e.g. a college schedule) with an optional feed
   seed.ts                       Seeds module registry + a demo family/login for local dev
 
 lib/
   auth/
     password.ts                scrypt password hashing (Node's built-in crypto) — family logins only
-    token.ts                    Generic signed-token helper shared by both session types below
+    token.ts                    Generic signed-token helper shared by every signed-token use case below
     session.ts                 Family session — signed `gc_session` cookie helpers
-    actions.ts                  signupAction / loginAction / logoutAction (Server Actions)
+    actions.ts                  signupAction / loginAction / logoutAction / member-invite actions (Server Actions)
+    member-invite.ts             Stateless signed "connect to the app" invite token (create/verify, 3-day expiry)
     admin-session.ts             Admin session — separate signed `gc_admin_session` cookie (see §9)
     admin-actions.ts             adminLogoutAction (Server Action) — sign-in is the OAuth route above, not an action
     admin-allowlist.ts           Hardcoded list of emails allowed to ever hold admin access (see §9)
@@ -82,10 +95,17 @@ src/
     module-registry.ts         The plug-in registry — source of truth for modules' categories/icons/schemas
     modules.ts                  Thin derived list from the registry (legacy/unused display helper)
     connectors.ts                Real iCal/webcal feed parser (`parseIcalFeed`) used by Sports/School sync
+    calendar-discovery.ts        Best-effort scraping to suggest a calendar feed URL from a plain website link
+    avatars.ts                   The illustrated avatar icon-pack options (`AVATAR_ICON_OPTIONS`) + path helper
+    category-icons.ts            Event/board-item category → icon mapping
+    date-utils.ts                Week-grid/date-formatting helpers shared by Today/Week views
+    use-now.ts                    `useNow()` hook — hydration-safe "current time", refreshed on an interval
   data/
     mock-data.ts                 Original static mock data (still used to seed the demo family)
 
 drizzle/                        Generated SQL migrations + snapshots (drizzle-kit generate)
+public/
+  icon_pack/                     Illustrated nav/category/avatar PNG icon set used throughout the UI
 ```
 
 ---
@@ -106,17 +126,35 @@ full Drizzle definitions; summary:
   [§9](#9-admin-console--data-privacy-guarantee).
 - **`family_members`** — the people/pets shown in the app (adult/teen/child/pet
   role, colour, avatar, name). `userId` optionally links a member profile to
-  the household's login account (marks "this member IS the account holder").
+  a login account. This isn't limited to the original signup owner — any
+  member can later get their **own** login via the invite-link "connect to
+  the app" flow (see [§5](#5-authentication)), giving that member's `users`
+  row the same `familyId` so they see the same shared household data under
+  their own email/password. `mapMember()`'s `hasAccount` boolean (derived
+  from `userId != null`) is what the UI uses to show a "Connected" badge —
+  the client never sees the raw `userId`.
 - **`modules`** — the plug-in registry mirrored in the DB: `key` (matches
   `src/core/module-registry.ts`), `name`, `description`, `icon`, `isCore`.
 - **`family_modules`** — per-family enable/disable state + a `config` jsonb
-  column for per-module settings — currently used to store a connector's
-  `{ feedUrl, lastSyncedAt }` (see [§9](#9-admin-console--data-privacy-guarantee)).
-  Unique on `(familyId, moduleId)`.
+  column for per-module settings — stores a module's calendar feeds as
+  `config.feeds: ModuleFeed[]` (each `{ id, label, url, lastSyncedAt }`), so
+  a module like Sports can have **more than one** feed (e.g. one per
+  kid/team). `readModuleFeeds()` in `db/queries.ts` transparently migrates
+  the older single-feed shape (`config.feedUrl` + `config.lastSyncedAt`)
+  into a one-item feeds list. See
+  [§9](#9-admin-console--data-privacy-guarantee). Unique on
+  `(familyId, moduleId)`.
+- **`custom_services`** — family-defined, ad-hoc "services" that aren't one
+  of the built-in modules (e.g. a college schedule, a one-off club or
+  tournament). Optionally backed by its own single iCal/webcal `feedUrl`,
+  synced the same upsert-by-UID way as a module's feed
+  (`custom-services-queries.ts`'s `syncCustomServiceFeed`). With no feed
+  it's just a label a manually-added event/board item can be tagged with.
 - **`events`** — generic calendar events. Core fields (title, start/end,
   personIds, category, location, icon, colour) plus a `details` jsonb column
   modules can use for structured extra data (e.g. sports opponent, school
-  term). `moduleId` records which module created it (nullable = manual/core).
+  term). `moduleId` records which module created it (nullable = manual/core);
+  `customServiceId` links it to a `custom_services` row instead, if any.
 - **`board_items`** — sticky notes / tasks / reminders / countdowns. Same
   generic-core + module `details` pattern as events.
 
@@ -191,6 +229,38 @@ no `bcrypt`/`jose`, just Node's built-in `crypto`. See `lib/auth/`.
 - **Required env var**: `SESSION_SECRET` (64-char hex recommended — generate
   with `openssl rand -hex 32`). Must be set in `.env.local` for local dev and
   in Vercel's Production/Preview/Development environment variables.
+
+### Connecting an individual family member to their own login
+
+The original signup flow only creates **one** login (the household owner).
+To let another family member (e.g. a teen) get their own personal
+email/password on their own phone — while still seeing the same shared
+household data — Profile → a member's card → the link icon generates a
+shareable **invite link**:
+
+- `generateMemberInviteLinkAction(memberId)` (`lib/auth/actions.ts`) checks
+  the caller is signed into that family, then calls
+  `assertMemberInviteEligible()` (`db/auth-queries.ts`) — the target member
+  must belong to the same family and not already have a `userId`.
+- The link itself is a **stateless, signed token** (`lib/auth/member-invite.ts`,
+  built on the same `createSignedToken`/`verifySignedToken` helper as
+  sessions), encoding `{ familyId, memberId, exp }` with a 3-day expiry — no
+  extra DB table needed to track outstanding invites.
+- `app/invite/page.tsx` verifies the token and shows a small signup form
+  (email + password) for that specific member. Submitting it
+  (`claimMemberInviteAction`) re-checks eligibility, creates a new `users`
+  row scoped to the same `familyId`, links it via
+  `family_members.userId` (`claimFamilyMemberInvite()`), and signs the new
+  user straight in.
+- Because eligibility is re-checked at claim time too, a link can't be used
+  twice (e.g. two tabs racing) or reused after someone else has already
+  connected that profile — the page shows an "already connected" state
+  instead.
+- Editing a family member's name/role/avatar/colour (the pencil icon on the
+  same card) is a separate, simpler flow: `updateFamilyMemberAction`
+  (`app/actions.ts`) → `updateFamilyMember()` (`db/queries.ts`), reusing the
+  `AddMemberModal` component in an "edit" mode (pre-filled fields, "Save"
+  instead of "Add").
 
 ⚠️ Note: this is a lightweight, from-scratch auth system suitable for a
 small personal/family app. It has no rate limiting, no email verification,
@@ -270,38 +340,70 @@ The app was built in phases; each is a discrete, shippable slice:
    configure connectors for any family without seeing that family's
    personal data. See [§9](#9-admin-console--data-privacy-guarantee) for
    the full design and the privacy guarantee this depends on.
+6. **Custom services & calendar discovery** — a Modules → "Your services"
+   flow for one-off things that aren't a built-in module (a college
+   schedule, a specific club). `db/custom-services-queries.ts` mirrors the
+   module feed-sync pattern for a single feed per service.
+   `src/core/calendar-discovery.ts`'s `discoverCalendarFeeds()` lets someone
+   paste in a plain website URL (e.g. a school's homepage) and get back
+   candidate `.ics`/webcal links scraped from the page or guessed from
+   common paths — shown as suggestions to pick from, never auto-applied.
+7. **Multi-feed modules** — a module (e.g. Sports) can now hold **more than
+   one** calendar feed (one per kid/team), each independently labelled,
+   synced, and removable — see `ModuleFeed`/`readModuleFeeds()` in
+   [§3](#3-data-model).
+8. **Illustrated avatar & icon pack, cosmic auth redesign** — a proper
+   illustrated icon set (`public/icon_pack/`, `src/core/avatars.ts`) for
+   family member avatars, nav items, and categories; login/signup/admin
+   login share a cosmic-themed shell (`auth-shell.tsx`,
+   `cosmic-illustrations.tsx`).
+9. **Editing family members & self-service login links** — parents can edit
+   an existing family member's name/role/avatar/colour, and generate a
+   shareable, expiring link that lets a family member set up their **own**
+   personal login rather than sharing the household one — see
+   [§5](#5-authentication).
+10. **In-app Help screen** — a basic Help tab (`help-view.tsx`), reachable
+    from Profile, walking through what each screen/icon does using the same
+    illustrated icon pack.
 
 Planned but not yet built (roadmap):
-6. Kitchen Display polish.
-7. PWA / push notifications (a `manifest.ts` and service-worker
-   registration already exist as a starting point; see `public/sw.js` and
-   the `useEffect` in `ground-control-app.tsx`).
-8. Production hardening (rate limiting, error monitoring, etc).
-9. More connector types beyond calendar feeds (maps, food/meal planning,
-   college schedules, etc.) — the module registry + `family_modules.config`
-   jsonb pattern is designed to support this without further schema
-   changes; each new connector type is just a new module registry entry +
-   a parser function alongside `parseIcalFeed`.
+11. Kitchen Display polish.
+12. PWA / push notifications (a `manifest.ts` and service-worker
+    registration already exist as a starting point; see `public/sw.js` and
+    the `useEffect` in `ground-control-app.tsx`).
+13. Production hardening (rate limiting, error monitoring, etc).
+14. More connector types beyond calendar feeds (maps, food/meal planning,
+    college schedules, etc.) — the module registry + `family_modules.config`
+    jsonb pattern is designed to support this without further schema
+    changes; each new connector type is just a new module registry entry +
+    a parser function alongside `parseIcalFeed`.
+15. Invite links currently have no delivery mechanism built in (no SMS/email
+    send) — the parent copies the link and shares it themselves (text,
+    AirDrop, etc). Sending it automatically would need an email/SMS
+    provider.
 
 ---
 
 ## 8. Known gaps / things to be aware of
 
-- `app/chatgpt-auth.ts` and the top of `README.md` are leftovers from the
-  original Next.js/vinext starter template and are **not used** by the real
-  auth system — safe to ignore or delete.
 - `src/core/modules.ts` (the static `modules` array derived from the
   registry) is currently unused by any component; `db/queries.ts`'s
   `getFamilyModules()` is the real source of per-family module state.
-- ESLint currently reports ~15 pre-existing issues (mostly `React` unused
-  imports under the new JSX transform, and a couple of accessibility lint
-  rules in `add-modal.tsx`/`week-view.tsx`). None are new/introduced by
-  recent phases — check `npm run lint` output before assuming a change
-  caused a regression.
+- ESLint has a small number of pre-existing issues (mostly `React` unused
+  imports under the new JSX transform, and a handful of accessibility lint
+  rules on non-interactive `<div>`s used as modal backdrops — consistent
+  across `add-modal.tsx`/`add-member-modal.tsx`/`invite-link-modal.tsx`/
+  `edit-avatar-modal.tsx`). None are new/introduced by recent phases — check
+  `npm run lint` output before assuming a change caused a regression.
 - The `AddModal` component's category selector is currently generic
   (event/task/note/reminder) and does not yet read from
   `module-registry.ts`'s per-module categories — a natural follow-up once
   more modules are connector-backed.
+- The invite-link ("connect to the app") flow has no way to **revoke** an
+  already-generated link before it's claimed — it simply expires after 3
+  days. Regenerating a new link for the same member doesn't invalidate an
+  older, still-unexpired one, since the token is stateless (nothing is
+  stored server-side to revoke).
 
 ---
 

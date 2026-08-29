@@ -82,3 +82,65 @@ export async function createFamilyWithOwner(input: CreateFamilyWithOwnerInput) {
 
   return { family, user, member };
 }
+
+/**
+ * Checks a family member is eligible for a "connect to the app" invite link:
+ * must belong to the given family and not already have their own login.
+ * Throws rather than returning a boolean so callers get a clear error
+ * message for the (rare, user-triggered) failure cases.
+ */
+export async function assertMemberInviteEligible(
+  familyId: string,
+  memberId: string
+): Promise<void> {
+  const db = getDb();
+  const [row] = await db
+    .select({ familyId: familyMembers.familyId, userId: familyMembers.userId })
+    .from(familyMembers)
+    .where(eq(familyMembers.id, memberId))
+    .limit(1);
+
+  if (!row || row.familyId !== familyId) {
+    throw new Error("Family member not found.");
+  }
+  if (row.userId) {
+    throw new Error("This family member is already connected.");
+  }
+}
+
+export type ClaimFamilyMemberInviteInput = {
+  familyId: string;
+  memberId: string;
+  email: string;
+  passwordHash: string;
+};
+
+/**
+ * Completes a "connect to the app" invite: creates a new login (`users` row)
+ * scoped to the same family and links it to the invited family member's
+ * existing profile via `family_members.user_id`. Re-validates eligibility so
+ * a link can't be claimed twice (e.g. two tabs racing) or against the wrong
+ * family.
+ */
+export async function claimFamilyMemberInvite(input: ClaimFamilyMemberInviteInput) {
+  await assertMemberInviteEligible(input.familyId, input.memberId);
+
+  const db = getDb();
+
+  const [user] = await db
+    .insert(users)
+    .values({
+      familyId: input.familyId,
+      email: input.email.toLowerCase().trim(),
+      passwordHash: input.passwordHash,
+    })
+    .returning();
+
+  const [member] = await db
+    .update(familyMembers)
+    .set({ userId: user.id })
+    .where(eq(familyMembers.id, input.memberId))
+    .returning();
+
+  return { user, member };
+}

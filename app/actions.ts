@@ -11,10 +11,12 @@ import {
   setFamilyModuleEnabled,
   syncModuleFeed,
   toggleBoardItem,
+  updateFamilyMember,
   updateFamilyMemberAvatar,
   type NewBoardItemInput,
   type NewEventInput,
   type NewFamilyMemberInput,
+  type UpdateFamilyMemberInput,
 } from "../db/queries";
 import {
   createCustomService,
@@ -39,6 +41,15 @@ export async function createFamilyMemberAction(input: NewFamilyMemberInput) {
 
 export async function updateFamilyMemberAvatarAction(memberId: string, avatarEmoji: string) {
   const member = await updateFamilyMemberAvatar(memberId, avatarEmoji);
+  revalidatePath("/");
+  return member;
+}
+
+export async function updateFamilyMemberAction(
+  memberId: string,
+  input: UpdateFamilyMemberInput
+) {
+  const member = await updateFamilyMember(memberId, input);
   revalidatePath("/");
   return member;
 }

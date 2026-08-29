@@ -21,6 +21,7 @@ function mapMember(row: MemberRow): FamilyMember {
     avatarEmoji: row.avatarEmoji ?? undefined,
     role: row.role,
     title: row.title ?? undefined,
+    hasAccount: row.userId != null,
   };
 }
 
@@ -197,6 +198,46 @@ export async function updateFamilyMemberAvatar(
     .returning();
 
   return mapMember(row);
+}
+
+export type UpdateFamilyMemberInput = Partial<{
+  name: string;
+  shortName: string;
+  colour: string;
+  avatarEmoji: string;
+  role: "adult" | "teen" | "child" | "pet";
+  title: string;
+}>;
+
+export async function updateFamilyMember(
+  memberId: string,
+  input: UpdateFamilyMemberInput
+): Promise<FamilyMember> {
+  const db = getDb();
+
+  const [row] = await db
+    .update(familyMembers)
+    .set(input)
+    .where(eq(familyMembers.id, memberId))
+    .returning();
+
+  return mapMember(row);
+}
+
+/**
+ * Raw member row (including familyId/userId) for server-only use — e.g. the
+ * invite-link claim flow, which needs to check `userId` before allowing a
+ * profile to be "connected" to a new login. Never expose `userId` to the
+ * client directly; use `mapMember`'s `hasAccount` boolean for that.
+ */
+export async function getFamilyMemberRawById(memberId: string): Promise<MemberRow | null> {
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(familyMembers)
+    .where(eq(familyMembers.id, memberId))
+    .limit(1);
+  return row ?? null;
 }
 
 export type NewEventInput = {

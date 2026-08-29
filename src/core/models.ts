@@ -14,6 +14,8 @@ export type FamilyMember = {
   avatarEmoji?: string;
   role: "adult" | "teen" | "child" | "pet";
   title?: string;
+  /** True if this profile already has its own login (see /invite connect flow). */
+  hasAccount?: boolean;
 };
 
 // Core categories always available (from the "planner" module). Modules can

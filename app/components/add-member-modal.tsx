@@ -9,6 +9,7 @@ interface AddMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaveMember: (member: FamilyMember) => void;
+  editingMember?: FamilyMember | null;
 }
 
 type Role = "adult" | "teen" | "child" | "pet";
@@ -22,11 +23,19 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
 
 const COLOUR_OPTIONS = ["#6C4DFF", "#22C1A2", "#FF5CA8", "#FFB347", "#4D96FF"];
 
-export function AddMemberModal({ isOpen, onClose, onSaveMember }: AddMemberModalProps) {
-  const [name, setName] = useState("");
-  const [role, setRole] = useState<Role>("child");
-  const [avatarEmoji, setAvatarEmoji] = useState(AVATAR_ICON_OPTIONS[4].key);
-  const [colour, setColour] = useState(COLOUR_OPTIONS[0]);
+export function AddMemberModal({
+  isOpen,
+  onClose,
+  onSaveMember,
+  editingMember,
+}: AddMemberModalProps) {
+  const isEditing = Boolean(editingMember);
+  const [name, setName] = useState(editingMember?.name ?? "");
+  const [role, setRole] = useState<Role>(editingMember?.role ?? "child");
+  const [avatarEmoji, setAvatarEmoji] = useState(
+    editingMember?.avatarEmoji ?? AVATAR_ICON_OPTIONS[4].key
+  );
+  const [colour, setColour] = useState(editingMember?.colour ?? COLOUR_OPTIONS[0]);
 
   if (!isOpen) return null;
 
@@ -35,15 +44,16 @@ export function AddMemberModal({ isOpen, onClose, onSaveMember }: AddMemberModal
     const trimmed = name.trim();
     if (!trimmed) return;
 
-    const newMember: FamilyMember = {
-      id: `m-user-${Date.now()}`,
+    const member: FamilyMember = {
+      id: editingMember?.id ?? `m-user-${Date.now()}`,
       name: trimmed,
       shortName: trimmed.charAt(0).toUpperCase(),
       colour,
       avatarEmoji,
       role,
+      hasAccount: editingMember?.hasAccount,
     };
-    onSaveMember(newMember);
+    onSaveMember(member);
 
     setName("");
     setRole("child");
@@ -67,7 +77,7 @@ export function AddMemberModal({ isOpen, onClose, onSaveMember }: AddMemberModal
 
         <div className="sheet-header">
           <h2 id="add-member-modal-title" className="sheet-title">
-            Add family member
+            {isEditing ? "Edit family member" : "Add family member"}
           </h2>
           <button type="button" className="sheet-close-btn" onClick={onClose} aria-label="Close">
             <X size={20} />
@@ -177,7 +187,7 @@ export function AddMemberModal({ isOpen, onClose, onSaveMember }: AddMemberModal
               Cancel
             </button>
             <button type="submit" className="sheet-add-btn" disabled={!name.trim()}>
-              Add
+              {isEditing ? "Save" : "Add"}
             </button>
           </div>
         </form>

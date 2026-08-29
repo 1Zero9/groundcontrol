@@ -10,9 +10,11 @@ import { RememberBoardView } from "./remember-board-view";
 import { ProfileView } from "./profile-view";
 import { ModulesView } from "./modules-view";
 import { KitchenDisplayView } from "./kitchen-display-view";
+import { HelpView } from "./help-view";
 import { AddModal } from "./add-modal";
 import { AddMemberModal } from "./add-member-modal";
 import { EditAvatarModal } from "./edit-avatar-modal";
+import { InviteLinkModal } from "./invite-link-modal";
 import { MemberAvatarContent } from "./member-avatar";
 import {
   createBoardItemAction,
@@ -29,6 +31,7 @@ import {
   syncCustomServiceFeedAction,
   syncModuleFeedAction,
   toggleBoardItemAction,
+  updateFamilyMemberAction,
   updateFamilyMemberAvatarAction,
 } from "../actions";
 
@@ -41,7 +44,7 @@ interface GroundControlAppProps {
   initialCustomServices: CustomService[];
 }
 
-type TabView = "today" | "week" | "remember" | "profile" | "modules" | "kitchen";
+type TabView = "today" | "week" | "remember" | "profile" | "modules" | "kitchen" | "help";
 
 export function GroundControlApp({
   familyId,
@@ -61,6 +64,8 @@ export function GroundControlApp({
   const [customServices, setCustomServices] = useState<CustomService[]>(initialCustomServices);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
+  const [invitingMember, setInvitingMember] = useState<FamilyMember | null>(null);
   const [isEditAvatarOpen, setIsEditAvatarOpen] = useState(false);
 
   // Register service worker if available
@@ -279,6 +284,27 @@ export function GroundControlApp({
   };
 
   const handleSaveMember = async (draft: FamilyMember) => {
+    if (editingMember) {
+      const memberId = editingMember.id;
+      const previous = family;
+      setFamily((prev) => prev.map((m) => (m.id === memberId ? { ...m, ...draft, id: memberId } : m)));
+      try {
+        const saved = await updateFamilyMemberAction(memberId, {
+          name: draft.name,
+          shortName: draft.shortName,
+          colour: draft.colour,
+          avatarEmoji: draft.avatarEmoji,
+          role: draft.role,
+          title: draft.title,
+        });
+        setFamily((prev) => prev.map((m) => (m.id === memberId ? saved : m)));
+      } catch (err) {
+        console.error("Failed to update family member", err);
+        setFamily(previous);
+      }
+      return;
+    }
+
     const optimisticId = draft.id;
     setFamily((prev) => [...prev, draft]);
     try {
@@ -395,11 +421,24 @@ export function GroundControlApp({
                   onOpenAdd={() => setIsAddOpen(true)}
                   onOpenModules={() => setActiveTab("modules")}
                   onOpenKitchen={() => setActiveTab("kitchen")}
-                  onOpenAddMember={() => setIsAddMemberOpen(true)}
+                  onOpenAddMember={() => {
+                    setEditingMember(null);
+                    setIsAddMemberOpen(true);
+                  }}
+                  onOpenEditMember={(member) => {
+                    setEditingMember(member);
+                    setIsAddMemberOpen(true);
+                  }}
+                  onOpenInviteMember={(member) => setInvitingMember(member)}
                   onOpenEditAvatar={() => setIsEditAvatarOpen(true)}
+                  onOpenHelp={() => setActiveTab("help")}
                   isDarkMode={isDarkMode}
                   onToggleDarkMode={() => setIsDarkMode((prev) => !prev)}
                 />
+              )}
+
+              {activeTab === "help" && (
+                <HelpView onBack={() => setActiveTab("profile")} />
               )}
 
               {activeTab === "modules" && (
@@ -476,11 +515,23 @@ export function GroundControlApp({
         onSaveBoardItem={handleSaveBoardItem}
       />
 
-      {/* Add Family Member Modal */}
+      {/* Add / Edit Family Member Modal */}
       <AddMemberModal
+        key={editingMember?.id ?? "new-member"}
         isOpen={isAddMemberOpen}
-        onClose={() => setIsAddMemberOpen(false)}
+        onClose={() => {
+          setIsAddMemberOpen(false);
+          setEditingMember(null);
+        }}
         onSaveMember={handleSaveMember}
+        editingMember={editingMember}
+      />
+
+      {/* Send Login Link Modal */}
+      <InviteLinkModal
+        key={invitingMember?.id ?? "none"}
+        member={invitingMember}
+        onClose={() => setInvitingMember(null)}
       />
 
       {/* Edit My Avatar Modal */}
