@@ -1057,11 +1057,38 @@ input, textarea, select {
 .add-sheet-panel {
   width: 100%;
   max-width: 440px;
+  max-height: 92vh;
+  overflow-y: auto;
   background: var(--surface);
   border-radius: 34px 34px 0 0;
   padding: 16px 22px 34px;
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.25);
   animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* On wider (desktop/tablet) viewports, sheets feel more at home as a
+   centered, fully-rounded dialog than a full-height mobile bottom sheet. */
+@media (min-width: 640px) {
+  .modal-backdrop-overlay {
+    align-items: center;
+    padding: 24px;
+  }
+
+  .add-sheet-panel {
+    border-radius: 28px;
+    max-height: 85vh;
+    box-shadow: 0 24px 60px rgba(15, 10, 36, 0.35);
+    animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sheet-pill-handle {
+    display: none;
+  }
+}
+
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 @keyframes slideUp {
