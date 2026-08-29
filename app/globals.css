@@ -2143,46 +2143,15 @@ input, textarea, select {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   text-align: center;
 }
 
-.auth-brand-logo-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.auth-brand-wordmark {
-  display: flex;
-  flex-direction: column;
-  line-height: 0.98;
-  text-align: left;
-}
-
-.auth-brand-line1,
-.auth-brand-line2 {
-  font-size: 24px;
-  font-weight: 800;
-  letter-spacing: -0.3px;
-}
-
-.auth-brand-line1 {
-  color: #FFFFFF;
-}
-
-.auth-brand-line2 {
-  color: #B69CFF;
-}
-
-.auth-brand-tagline {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 1.6px;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: 4px;
+.auth-brand-logo-img {
+  width: min(340px, 82vw);
+  height: auto;
+  border-radius: 18px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
 }
 
 .auth-card {

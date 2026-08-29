@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { RocketMark, SaturnPlanet, Starfield } from "./cosmic-illustrations";
+import { SaturnPlanet, Starfield } from "./cosmic-illustrations";
 import { SiteFooter } from "./site-footer";
 
 export function AuthShell({ children }: { children: ReactNode }) {
@@ -17,14 +17,11 @@ export function AuthShell({ children }: { children: ReactNode }) {
       </div>
 
       <div className="auth-brand">
-        <div className="auth-brand-logo-row">
-          <RocketMark size={40} />
-          <div className="auth-brand-wordmark">
-            <span className="auth-brand-line1">Ground</span>
-            <span className="auth-brand-line2">Control</span>
-          </div>
-        </div>
-        <p className="auth-brand-tagline">Plan · Track · Launch Together</p>
+        <img
+          src="/og.png"
+          alt="Ground Control — your family mission control"
+          className="auth-brand-logo-img"
+        />
       </div>
 
       {children}
