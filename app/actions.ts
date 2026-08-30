@@ -15,12 +15,14 @@ import {
   syncModuleFeed,
   toggleBoardItem,
   touchMemberLastSeen,
+  updateBoardItem,
   updateEvent,
   updateFamilyMember,
   updateFamilyMemberAvatar,
   type NewBoardItemInput,
   type NewEventInput,
   type NewFamilyMemberInput,
+  type UpdateBoardItemInput,
   type UpdateEventInput,
   type UpdateFamilyMemberInput,
 } from "../db/queries";
@@ -79,6 +81,12 @@ export async function updateFamilyMemberAction(
 
 export async function createBoardItemAction(input: NewBoardItemInput) {
   const item = await createBoardItem(input);
+  revalidatePath("/");
+  return item;
+}
+
+export async function updateBoardItemAction(id: string, input: UpdateBoardItemInput) {
+  const item = await updateBoardItem(id, input);
   revalidatePath("/");
   return item;
 }

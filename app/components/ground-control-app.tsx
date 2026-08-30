@@ -52,6 +52,7 @@ import {
   syncModuleFeedAction,
   toggleBoardItemAction,
   touchMemberLastSeenAction,
+  updateBoardItemAction,
   updateEventAction,
   updateFamilyMemberAction,
   updateFamilyMemberAvatarAction,
@@ -97,6 +98,7 @@ export function GroundControlApp({
   const [moduleRequests, setModuleRequests] = useState<ModuleRequest[]>(initialModuleRequests);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+  const [editingBoardItem, setEditingBoardItem] = useState<BoardItem | null>(null);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<FamilyMember | null>(null);
   const [invitingMember, setInvitingMember] = useState<FamilyMember | null>(null);
@@ -252,6 +254,26 @@ export function GroundControlApp({
       setBoard((prev) =>
         prev.map((b) => (b.id === id ? { ...b, completed: !b.completed } : b))
       );
+    }
+  };
+
+  const handleUpdateBoardItem = async (id: string, draft: BoardItem) => {
+    const previous = board;
+    setBoard((prev) => prev.map((b) => (b.id === id ? draft : b)));
+    try {
+      const saved = await updateBoardItemAction(id, {
+        text: draft.text,
+        type: draft.type,
+        personIds: draft.personIds,
+        pinned: draft.pinned,
+        badge: draft.badge,
+        color: draft.color,
+        customServiceId: draft.customServiceId,
+      });
+      setBoard((prev) => prev.map((b) => (b.id === id ? saved : b)));
+    } catch (err) {
+      console.error("Failed to update board item", err);
+      setBoard(previous);
     }
   };
 
@@ -534,6 +556,10 @@ export function GroundControlApp({
                   onNavigateToWeek={() => setActiveTab("week")}
                   onOpenAdd={() => setIsAddOpen(true)}
                   onToggleTask={handleToggleBoardItem}
+                  onEditItem={(item) => {
+                    setEditingBoardItem(item);
+                    setIsAddOpen(true);
+                  }}
                 />
               )}
 
@@ -557,6 +583,10 @@ export function GroundControlApp({
                   onOpenAdd={() => setIsAddOpen(true)}
                   onRemoveItem={handleRemoveBoardItem}
                   onToggleItem={handleToggleBoardItem}
+                  onEditItem={(item) => {
+                    setEditingBoardItem(item);
+                    setIsAddOpen(true);
+                  }}
                 />
               )}
 
@@ -780,11 +810,12 @@ export function GroundControlApp({
 
       {/* Global Add Something / Edit Event Modal */}
       <AddModal
-        key={editingEvent?.id ?? "new-event"}
+        key={editingEvent?.id ?? editingBoardItem?.id ?? "new-item"}
         isOpen={isAddOpen}
         onClose={() => {
           setIsAddOpen(false);
           setEditingEvent(null);
+          setEditingBoardItem(null);
         }}
         currentUser={currentUser}
         family={family}
@@ -795,6 +826,9 @@ export function GroundControlApp({
         editingEvent={editingEvent}
         onUpdateEvent={handleUpdateEvent}
         onDeleteEvent={handleDeleteEvent}
+        editingBoardItem={editingBoardItem}
+        onUpdateBoardItem={handleUpdateBoardItem}
+        onDeleteBoardItem={handleRemoveBoardItem}
       />
 
       {/* Add / Edit Family Member Modal */}

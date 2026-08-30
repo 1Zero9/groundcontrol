@@ -546,6 +546,20 @@ input, textarea, select {
   z-index: 5;
 }
 
+.sticky-note-edit-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 6;
+  color: #B26B00;
+  opacity: 0.55;
+  padding: 4px;
+}
+
+.sticky-note-edit-btn:hover {
+  opacity: 1;
+}
+
 .pin-3d {
   width: 18px;
   height: 18px;
@@ -672,6 +686,23 @@ input, textarea, select {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.task-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-edit-mini-btn {
+  color: var(--muted);
+  opacity: 0.6;
+  padding: 2px;
+}
+
+.task-edit-mini-btn:hover {
+  opacity: 1;
+  color: var(--ink);
 }
 
 .task-checkbox-circle {
@@ -1440,6 +1471,133 @@ input, textarea, select {
   line-height: 1.4;
 }
 
+.convert-to-event-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 18px;
+  background: var(--purple-soft);
+  color: var(--purple);
+  font-size: 13px;
+  font-weight: 600;
+  margin: -6px 0 2px;
+}
+
+.convert-to-event-btn:hover {
+  background: var(--purple-glow);
+}
+
+.scan-photo-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: -6px 0 2px;
+}
+
+.scan-photo-input {
+  display: none;
+}
+
+.scan-photo-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 18px;
+  background: var(--mint-soft);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.scan-photo-btn:hover {
+  background: #DCF7EE;
+}
+
+.scan-photo-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.scan-photo-error {
+  font-size: 12.5px;
+  color: var(--pink);
+  margin: 0;
+}
+
+.pdf-import-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: -2px 0 2px;
+}
+
+.pdf-import-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 18px;
+  background: var(--amber-soft);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pdf-import-btn:hover {
+  background: #FFEFCB;
+}
+
+.pdf-import-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.pdf-candidate-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 14px;
+  background: var(--amber-soft);
+}
+
+.pdf-candidate-heading {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-secondary);
+  margin: 0 0 2px;
+}
+
+.pdf-candidate-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  text-align: left;
+}
+
+.pdf-candidate-item:hover {
+  background: #FFEFCB;
+}
+
+.pdf-candidate-text {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.pdf-candidate-meta {
+  font-size: 12px;
+  color: var(--ink-secondary);
+}
+
 .sheet-cancel-btn {
   padding: 10px 18px;
   font-size: 14px;
@@ -1548,13 +1706,13 @@ input, textarea, select {
   gap: 4px;
 }
 
-.delete-note-mini-btn, .toggle-done-mini-btn {
+.delete-note-mini-btn, .toggle-done-mini-btn, .edit-note-mini-btn {
   color: var(--muted);
   opacity: 0.6;
   padding: 2px;
 }
 
-.delete-note-mini-btn:hover, .toggle-done-mini-btn:hover {
+.delete-note-mini-btn:hover, .toggle-done-mini-btn:hover, .edit-note-mini-btn:hover {
   opacity: 1;
   color: var(--ink);
 }
@@ -1565,6 +1723,10 @@ input, textarea, select {
   color: var(--ink);
   line-height: 1.25;
   margin-bottom: 4px;
+}
+
+.card-text-editable {
+  cursor: pointer;
 }
 
 .card-text-sub {

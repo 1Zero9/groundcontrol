@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronRight, Check } from "lucide-react";
+import { ChevronRight, Check, Pencil } from "lucide-react";
 import type { BoardItem, Event, FamilyMember } from "../../src/core/models";
 import { SaturnPlanet, Starfield, PushPin } from "./cosmic-illustrations";
 import { EventIcon } from "./event-icon";
@@ -17,6 +17,7 @@ interface TodayViewProps {
   onNavigateToWeek: () => void;
   onOpenAdd: () => void;
   onToggleTask?: (id: string) => void;
+  onEditItem?: (item: BoardItem) => void;
 }
 
 export function TodayView({
@@ -26,6 +27,7 @@ export function TodayView({
   onNavigateToWeek,
   onOpenAdd,
   onToggleTask,
+  onEditItem,
 }: TodayViewProps) {
   const now = useNow();
   const effectiveNow = now ?? FALLBACK_NOW;
@@ -145,6 +147,20 @@ export function TodayView({
               <PushPin />
             </div>
 
+            {onEditItem && (
+              <button
+                type="button"
+                className="sticky-note-edit-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditItem(stickyNote);
+                }}
+                aria-label="Edit note"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
+
             <div className="sticky-note-inner">
               <span className="sticky-kicker">Remember this</span>
               <p className="sticky-text">{stickyNote.text}</p>
@@ -189,6 +205,19 @@ export function TodayView({
               >
                 {currentUser.shortName || currentUser.name.charAt(0)}
               </span>
+              {onEditItem && (
+                <button
+                  type="button"
+                  className="task-edit-mini-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditItem(primaryTask);
+                  }}
+                  aria-label="Edit task"
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
             </div>
           </div>
         )}

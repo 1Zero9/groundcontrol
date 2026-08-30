@@ -428,6 +428,44 @@ export async function createBoardItem(input: NewBoardItemInput): Promise<BoardIt
   return mapBoardItem(row, "board");
 }
 
+export type UpdateBoardItemInput = {
+  text: string;
+  type?: "note" | "task" | "reminder" | "countdown";
+  personIds?: string[];
+  pinned?: boolean;
+  badge?: string;
+  color?: string;
+  customServiceId?: string;
+};
+
+/**
+ * Updates an existing board item's text/details (note, task, or reminder).
+ * Mirrors updateEvent's approach for events.
+ */
+export async function updateBoardItem(id: string, input: UpdateBoardItemInput): Promise<BoardItem> {
+  const db = getDb();
+
+  const [row] = await db
+    .update(boardItems)
+    .set({
+      text: input.text,
+      type: input.type,
+      personIds: input.personIds,
+      pinned: input.pinned,
+      badge: input.badge,
+      color: input.color,
+      customServiceId: input.customServiceId,
+    })
+    .where(eq(boardItems.id, id))
+    .returning();
+
+  if (!row) {
+    throw new Error(`Board item ${id} not found`);
+  }
+
+  return mapBoardItem(row, "board");
+}
+
 export async function toggleBoardItem(id: string): Promise<BoardItem> {
   const db = getDb();
   const [existing] = await db

@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Plus, Trash2, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, CheckCircle2, Pencil } from "lucide-react";
 import type { BoardItem, FamilyMember } from "../../src/core/models";
 import { PushPin } from "./cosmic-illustrations";
 
@@ -11,6 +11,7 @@ interface RememberBoardViewProps {
   onOpenAdd: () => void;
   onRemoveItem: (id: string) => void;
   onToggleItem: (id: string) => void;
+  onEditItem: (item: BoardItem) => void;
 }
 
 export function RememberBoardView({
@@ -19,6 +20,7 @@ export function RememberBoardView({
   onOpenAdd,
   onRemoveItem,
   onToggleItem,
+  onEditItem,
 }: RememberBoardViewProps) {
   return (
     <div className="screen remember-screen">
@@ -92,6 +94,14 @@ export function RememberBoardView({
                     )}
                     <button
                       type="button"
+                      className="edit-note-mini-btn"
+                      onClick={() => onEditItem(item)}
+                      aria-label="Edit note"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      type="button"
                       className="delete-note-mini-btn"
                       onClick={() => onRemoveItem(item.id)}
                       aria-label="Delete note"
@@ -101,7 +111,15 @@ export function RememberBoardView({
                   </div>
                 </div>
 
-                <h3 className="card-text-body">{item.text}</h3>
+                <h3
+                  className="card-text-body card-text-editable"
+                  onClick={() => onEditItem(item)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === "Enter" && onEditItem(item)}
+                >
+                  {item.text}
+                </h3>
                 {item.subtitle && (
                   <p className="card-text-sub">{item.subtitle}</p>
                 )}
