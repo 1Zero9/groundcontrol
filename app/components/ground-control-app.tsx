@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Home,
   CalendarDays,
@@ -706,14 +706,15 @@ export function GroundControlApp({
       {isNavDrawerOpen && (
         <div
           className="nav-drawer-overlay"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Main menu"
+          role="presentation"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsNavDrawerOpen(false);
           }}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") setIsNavDrawerOpen(false);
+          }}
         >
-          <nav className="nav-drawer-panel">
+          <nav className="nav-drawer-panel" role="dialog" aria-modal="true" aria-label="Main menu">
             <div className="nav-drawer-header">
               <span className="nav-drawer-title">Menu</span>
               <button

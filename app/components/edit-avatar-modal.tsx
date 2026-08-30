@@ -24,14 +24,20 @@ export function EditAvatarModal({ isOpen, currentAvatar, onClose, onSave }: Edit
   return (
     <div
       className="modal-backdrop-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="edit-avatar-modal-title"
+      role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
     >
-      <div className="add-sheet-panel">
+      <div
+        className="add-sheet-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="edit-avatar-modal-title"
+      >
         <div className="sheet-pill-handle" />
 
         <div className="sheet-header">

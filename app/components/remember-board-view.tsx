@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { Plus, Trash2, CheckCircle2, Pencil } from "lucide-react";
 import type { BoardItem, FamilyMember } from "../../src/core/models";
 import { PushPin } from "./cosmic-illustrations";
@@ -111,13 +110,7 @@ export function RememberBoardView({
                   </div>
                 </div>
 
-                <h3
-                  className="card-text-body card-text-editable"
-                  onClick={() => onEditItem(item)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === "Enter" && onEditItem(item)}
-                >
+                <h3 className="card-text-body card-text-editable">
                   {item.text}
                 </h3>
                 {item.subtitle && (

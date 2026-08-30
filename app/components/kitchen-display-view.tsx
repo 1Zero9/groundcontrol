@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   CalendarDays,
   Home,
@@ -32,8 +32,6 @@ interface KitchenDisplayViewProps {
 export function KitchenDisplayView({
   family,
   events,
-  board,
-  currentUser,
   onSelectUser,
   onOpenAdd,
   onExit,

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
   Check,
   HelpCircle,
@@ -73,7 +73,6 @@ function NicknameEditor({
         onChange={(e) => setValue(e.target.value)}
         placeholder="Nickname"
         maxLength={30}
-        autoFocus
         onKeyDown={(e) => {
           if (e.key === "Enter") handleSave();
           if (e.key === "Escape") setIsEditing(false);

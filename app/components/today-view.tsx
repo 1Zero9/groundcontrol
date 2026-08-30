@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { ChevronRight, Check, Pencil } from "lucide-react";
 import type { BoardItem, Event, FamilyMember } from "../../src/core/models";
 import { SaturnPlanet, Starfield, PushPin } from "./cosmic-illustrations";
@@ -25,7 +25,6 @@ export function TodayView({
   events,
   board,
   onNavigateToWeek,
-  onOpenAdd,
   onToggleTask,
   onEditItem,
 }: TodayViewProps) {

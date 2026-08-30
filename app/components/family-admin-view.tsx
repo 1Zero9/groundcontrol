@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import { ArrowLeft, Blocks, Check, Link2, Pencil, Trash2, UserPlus } from "lucide-react";
 import type { Event, FamilyMember } from "../../src/core/models";
 import { MemberAvatarContent } from "./member-avatar";

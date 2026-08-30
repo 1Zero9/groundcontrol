@@ -65,14 +65,20 @@ export function AddMemberModal({
   return (
     <div
       className="modal-backdrop-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="add-member-modal-title"
+      role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
     >
-      <div className="add-sheet-panel">
+      <div
+        className="add-sheet-panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-member-modal-title"
+      >
         <div className="sheet-pill-handle" />
 
         <div className="sheet-header">
@@ -96,7 +102,6 @@ export function AddMemberModal({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., Finn"
-              autoFocus
               required
             />
           </div>

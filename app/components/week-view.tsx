@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Event, FamilyMember } from "../../src/core/models";
 import { EventIcon } from "./event-icon";
@@ -18,7 +18,6 @@ interface WeekViewProps {
 }
 
 export function WeekView({
-  currentUser,
   family,
   events,
   onOpenAdd,
@@ -213,13 +212,11 @@ export function WeekView({
               const timeDisplay = evt.allDay ? "All day" : formatTime(evt.start);
 
               return (
-                <article
+                <button
                   key={evt.id}
+                  type="button"
                   className="timeline-event-card"
                   onClick={() => onSelectEvent?.(evt)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => e.key === "Enter" && onSelectEvent?.(evt)}
                 >
                   {/* Left Color Stripe */}
                   <span
@@ -247,7 +244,7 @@ export function WeekView({
                       <EventIcon icon={evt.icon} category={evt.category} size={22} />
                     </span>
                   </div>
-                </article>
+                </button>
               );
             })}
           </div>

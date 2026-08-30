@@ -307,14 +307,20 @@ export function AddModal({
   return (
     <div
       className="modal-backdrop-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="add-modal-title"
+      role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") onClose();
+      }}
     >
-      <div className={`add-sheet-panel ${isEditing ? "is-editing-mode" : ""}`}>
+      <div
+        className={`add-sheet-panel ${isEditing ? "is-editing-mode" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-modal-title"
+      >
         {/* Drag handle */}
         <div className="sheet-pill-handle" />
 
