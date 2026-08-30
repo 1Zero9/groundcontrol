@@ -25,17 +25,17 @@ const HELP_SECTIONS: { icon: string; title: string; body: string }[] = [
   {
     icon: "/icon_pack/nav_add.png",
     title: "Adding things",
-    body: "Tap the + button to add an event or a note, and choose who it's for.",
+    body: "Tap the + button to add an event, task, note, or reminder and choose who it's for. You can also scan text from a photo, import candidate events from a PDF, or convert an existing note/task into a calendar event.",
   },
   {
     icon: "/icon_pack/nav_profile.png",
-    title: "Family & profiles",
-    body: "Tap a family member's card to switch the active profile. Parents can tap the pencil to edit a member's name, role, avatar, or colour, and use the link icon to send someone a login link so they can connect to the app on their own phone.",
+    title: "Menu & Family Admin",
+    body: "Tap the menu icon (top-left) for the full navigation, including Remember board, Kitchen Display, and Family Admin. In Family Admin, adults can tap a family member's card to switch the active profile, tap the pencil to edit a member's name, role, avatar, or colour, and use the link icon to send someone a login link so they can connect to the app on their own phone.",
   },
   {
     icon: "/icon_pack/nav_settings.png",
     title: "Modules & calendars",
-    body: "Turn features like Sports or School on or off, and connect calendar feeds (iCal/webcal links) so events sync in automatically.",
+    body: "Turn features like Sports, School, Life, or Bills & Renewals on or off, and connect calendar feeds (iCal/webcal links) so events sync in automatically. Don't see a module you need? Use Request a module at the bottom of the Modules screen.",
   },
   {
     icon: "/icon_pack/nav_planet.png",
@@ -45,7 +45,7 @@ const HELP_SECTIONS: { icon: string; title: string; body: string }[] = [
   {
     icon: "/icon_pack/cat_alert_warning.png",
     title: "Still stuck?",
-    body: "Ask whoever set up your family's Ground Control — they can manage modules, family members, and login links from the Profile screen.",
+    body: "Ask whoever set up your family's Ground Control — they can manage modules, family members, and login links from the Family Admin screen.",
   },
 ];
 

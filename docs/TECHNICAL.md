@@ -18,6 +18,8 @@ login, members, events, notes, and enabled modules.
 | Database   | PostgreSQL (Prisma Postgres / Neon-compatible), accessed via `pg` |
 | ORM        | Drizzle ORM (`drizzle-orm` + `drizzle-kit`) |
 | Auth       | Hand-rolled — no external auth library (see [§5](#5-authentication)) |
+| Testing    | Vitest (unit tests for auth/rate-limit/date helpers — see `**/*.test.ts`) |
+| CI         | GitHub Actions (`.github/workflows/ci.yml`) — lint, typecheck, test, build on every push/PR |
 | Hosting    | Vercel |
 | Language   | TypeScript throughout |
 
@@ -33,9 +35,12 @@ app/
   page.tsx                 Home route — session-gated, loads family data (Server Component)
   layout.tsx                Root layout, fonts, viewport
   manifest.ts                PWA manifest
-  actions.ts                 Server Actions for events/board items/modules/family members
-  login/page.tsx             Login screen (family)
+  actions.ts                 Server Actions for events/board items/modules/family members/module requests
+  error.tsx, global-error.tsx  Route-level and root error boundaries (logs via lib/log-error.ts)
+  login/page.tsx             Login screen (family) — includes "Forgot your password?" link
   signup/page.tsx            Signup screen (family)
+  forgot-password/page.tsx    Request a password-reset email
+  reset-password/page.tsx     Set a new password from a reset-email link
   invite/page.tsx            /invite — a family member claims their own login via a shared link (see §5)
   privacy/page.tsx, terms/page.tsx  Static legal pages linked from the auth screens
   admin/
@@ -43,20 +48,21 @@ app/
     auth/google/route.ts     Starts Google OAuth (sets CSRF state cookie, redirects to Google)
     auth/google/callback/route.ts  Verifies Google identity + allowlist, sets admin session
     page.tsx                 /admin console — operator-only, gated by its own admin session (Server Component)
-    actions.ts                Admin Server Actions (connector config only — see §9)
+    actions.ts                Admin Server Actions (connector config, custom modules, module requests — see §9)
   components/
-    ground-control-app.tsx   Main client shell: tabs, display modes, state, optimistic updates
+    ground-control-app.tsx   Main client shell: tabs, nav drawer, state, optimistic updates
     today-view.tsx           "Today" tab
-    week-view.tsx             "My week" tab
-    remember-board-view.tsx  "Remember" (sticky notes / tasks) tab
-    profile-view.tsx          "Profile" tab — switch member, edit/invite members, Help entry point, logout
-    modules-view.tsx          Module marketplace (enable/disable modules, configure connectors)
+    week-view.tsx             "My week" tab — events are editable/deletable
+    remember-board-view.tsx  "Remember board" tab
+    profile-view.tsx          "Profile" tab — mission stats, Family Admin/Kitchen Display/theme/Help/logout
+    family-admin-view.tsx     "Family Admin" tab (adults only) — member list, edit/invite members, manage modules, remove demo data
+    modules-view.tsx          Module marketplace (enable/disable modules, configure connectors, request a module)
     help-view.tsx              Basic in-app Help screen (icon-pack-illustrated guide to each screen)
-    add-modal.tsx              "Add" bottom sheet (event / task / note / reminder)
+    add-modal.tsx              "Add" bottom sheet (event / task / note / reminder) — plus photo OCR, PDF import, convert-to-event
     add-member-modal.tsx      Add **and edit** a family member (name/role/avatar/colour) — shared modal
     invite-link-modal.tsx     Generates and shares a "connect to the app" login link for a family member
     edit-avatar-modal.tsx     Change the current user's own avatar icon
-    admin-view.tsx             /admin console UI (family list + per-family connector config)
+    admin-view.tsx             /admin console UI (family list, per-family connector config, custom modules, module requests)
     kitchen-display-view.tsx Kitchen wall-display mode (tablet/TV layout)
     auth-shell.tsx              Shared cosmic-themed shell/card wrapper for login/signup/admin-login/invite
     password-field.tsx          Reusable show/hide password `<input>` used by all auth forms
@@ -72,40 +78,51 @@ db/
   queries.ts                   Core data-access layer (events, board items, modules, connector sync, family members)
   auth-queries.ts              Auth-specific queries (getUserByEmail, getUserById, createFamilyWithOwner)
   admin-auth-queries.ts          Auth queries for the standalone `admins` table — Google-profile upsert (see §9)
-  admin-queries.ts              Admin-only queries — families/modules/config, NEVER events/board (see §9)
+  admin-queries.ts              Admin-only queries — families/modules/config/custom modules/module requests, NEVER events/board (see §9)
   custom-services-queries.ts    Family-defined ad-hoc "services" (e.g. a college schedule) with an optional feed
+  module-requests-queries.ts    Family-side "request a module" create/list queries (paired with admin resolve queries above)
+  baseline-migrations.ts        One-off script that marks pre-existing `db:push`-applied migrations as done (see §6)
   seed.ts                       Seeds module registry + a demo family/login for local dev
 
 lib/
+  rate-limit.ts                 Fixed-window rate limiter (Postgres-backed) for auth-sensitive Server Actions
+  log-error.ts                   Shared server-side error logging hook used by error boundaries and actions
+  email.ts                       Minimal email-sending helper used by the password-reset flow
   auth/
     password.ts                scrypt password hashing (Node's built-in crypto) — family logins only
+    password-reset.ts            Signed password-reset token create/verify + the reset Server Action
     token.ts                    Generic signed-token helper shared by every signed-token use case below
     session.ts                 Family session — signed `gc_session` cookie helpers
-    actions.ts                  signupAction / loginAction / logoutAction / member-invite actions (Server Actions)
+    actions.ts                  signupAction / loginAction / logoutAction / member-invite actions (Server Actions) — rate-limited
     member-invite.ts             Stateless signed "connect to the app" invite token (create/verify, 3-day expiry)
     admin-session.ts             Admin session — separate signed `gc_admin_session` cookie (see §9)
     admin-actions.ts             adminLogoutAction (Server Action) — sign-in is the OAuth route above, not an action
     admin-allowlist.ts           Hardcoded list of emails allowed to ever hold admin access (see §9)
     google-oauth.ts              Minimal hand-rolled Google OAuth 2.0 client (no external library)
     admin.ts                    requireAdmin() guard for the /admin console
+    *.test.ts                    Vitest unit tests for password/token helpers
 
 src/
   core/
     models.ts                   Shared TS types (Family, FamilyMember, Event, BoardItem, GroundControlModule)
-    module-registry.ts         The plug-in registry — source of truth for modules' categories/icons/schemas
+    module-registry.ts         The plug-in registry — source of truth for modules' categories/icons/schemas (planner, board, sports, school, life, bills)
     modules.ts                  Thin derived list from the registry (legacy/unused display helper)
     connectors.ts                Real iCal/webcal feed parser (`parseIcalFeed`) used by Sports/School sync
     calendar-discovery.ts        Best-effort scraping to suggest a calendar feed URL from a plain website link
     avatars.ts                   The illustrated avatar icon-pack options (`AVATAR_ICON_OPTIONS`) + path helper
     category-icons.ts            Event/board-item category → icon mapping
     date-utils.ts                Week-grid/date-formatting helpers shared by Today/Week views
+    date-utils.test.ts            Vitest unit tests for the above
+    pdf-extract.ts                Extracts candidate events (text + date/time) from an uploaded PDF for the Add sheet
     use-now.ts                    `useNow()` hook — hydration-safe "current time", refreshed on an interval
   data/
     mock-data.ts                 Original static mock data (still used to seed the demo family)
 
-drizzle/                        Generated SQL migrations + snapshots (drizzle-kit generate)
+drizzle/                        SQL migration files + snapshots (drizzle-kit generate), applied via drizzle-kit migrate
 public/
   icon_pack/                     Illustrated nav/category/avatar PNG icon set used throughout the UI
+.github/
+  workflows/ci.yml                CI: install, lint, typecheck, test, build on every push/PR
 ```
 
 ---
@@ -185,13 +202,16 @@ see [Phase 3](#7-module-marketplace).
   in parallel, then renders the client shell (`GroundControlApp`) with that
   data as props (SSR — no client-side data fetching/loading spinners on first
   paint).
-- `GroundControlApp` (`"use client"`) owns all interactive state: active tab,
-  display mode (mobile / kitchen / full-screen responsive), dark mode,
-  current selected family member, and local copies of events/board
-  items/modules (seeded from server props, then updated optimistically).
-- Tabs (`today` / `week` / `remember` / `profile` / `modules`) are plain
-  conditionally-rendered React state — **not routes**. Only one tab's
-  component is mounted at a time.
+- `GroundControlApp` (`"use client"`) owns all interactive state: active
+  tab, nav-drawer open/closed, dark mode, current selected family member,
+  and local copies of events/board items/modules (seeded from server props,
+  then updated optimistically).
+- Tabs (`today` / `week` / `remember` / `profile` / `family-admin` /
+  `modules` / `kitchen` / `help`) are plain conditionally-rendered React
+  state — **not routes**. Only one tab's component is mounted at a time. A
+  fixed 4-item bottom dock (Today/My week/Add/Profile) and a slide-out nav
+  drawer (all tabs, reached via a header menu button) both set this same
+  state.
 - **Mutations use the optimistic-update + Server Action pattern**:
   1. Update local React state immediately (instant UI feedback).
   2. Call the corresponding Server Action in `app/actions.ts`.
@@ -226,6 +246,21 @@ no `bcrypt`/`jose`, just Node's built-in `crypto`. See `lib/auth/`.
 - **Route protection**: `app/page.tsx` calls `getSession()` and redirects to
   `/login` if there's no valid session. `/login` and `/signup` redirect to
   `/` if a session already exists.
+- **Authorization**: every Server Action and query that reads or mutates a
+  specific event/board item/family member/module first checks it belongs to
+  the caller's own `familyId` from the session — never trusts an id passed
+  from the client alone.
+- **Rate limiting** (`lib/rate-limit.ts`): a fixed-window, DB-backed limiter
+  (a `rate_limits` table, atomic `INSERT ... ON CONFLICT`) applied to login,
+  signup, invite-claim, and password-reset request/confirm — slows down
+  brute-force/credential-stuffing attempts without needing an in-memory
+  store (which wouldn't survive Vercel's stateless serverless instances).
+- **Password reset** (`lib/auth/password-reset.ts`, `lib/email.ts`): a
+  signed, short-lived, single-use reset token (same `createSignedToken`/
+  `verifySignedToken` helper as sessions and member-invite links) emailed to
+  the account's address via `/forgot-password` → `/reset-password`. Always
+  returns the same success message regardless of whether the email matched
+  an account, to avoid leaking which emails have accounts.
 - **Required env var**: `SESSION_SECRET` (64-char hex recommended — generate
   with `openssl rand -hex 32`). Must be set in `.env.local` for local dev and
   in Vercel's Production/Preview/Development environment variables.
@@ -263,9 +298,10 @@ shareable **invite link**:
   instead of "Add").
 
 ⚠️ Note: this is a lightweight, from-scratch auth system suitable for a
-small personal/family app. It has no rate limiting, no email verification,
-no password reset flow, and no CSRF-token-based protection beyond what
-Next.js Server Actions provide natively.
+small personal/family app. Rate limiting and a password-reset flow are in
+place (above), but there is still no email verification on signup, and no
+CSRF-token-based protection beyond what Next.js Server Actions provide
+natively.
 
 ---
 
@@ -278,6 +314,7 @@ Required environment variables (see `.env.local`, gitignored):
 | `DATABASE_URL` / `POSTGRES_URL` / `PRISMA_DATABASE_URL` | Postgres connection strings (Vercel/Prisma Postgres provisioning) |
 | `SESSION_SECRET` | HMAC signing key for session cookies |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth credentials for `/admin` sign-in only (see [§9](#9-admin-console--data-privacy-guarantee)) |
+| `RESEND_API_KEY` / `EMAIL_FROM` | Optional — enables real password-reset emails via Resend (`lib/email.ts`); without these, reset emails are just logged to the server console (fine for local dev, not for production) |
 
 ```bash
 npm install
@@ -381,22 +418,61 @@ The app was built in phases; each is a discrete, shippable slice:
 10. **In-app Help screen** — a basic Help tab (`help-view.tsx`), reachable
     from Profile, walking through what each screen/icon does using the same
     illustrated icon pack.
+11. **PWA** — `manifest.ts`, a service worker (`public/sw.js`), and
+    generated app icons (`public/icon-192.png`, `icon-512.png`,
+    `apple-touch-icon.png`) make Ground Control installable to a phone's
+    home screen. The old "Mobile Phone / Kitchen Display / Full Screen"
+    device-preview switcher was removed in favour of the app just being
+    itself at any viewport size, with Kitchen Display as its own tab.
+12. **Bills module, family admin, nav drawer, demo data** — a fourth
+    optional module, **Bills & Renewals**; a new **Family Admin** tab
+    (adults-only) hosting the household member list (switch/edit/invite/add
+    a member), a "Manage modules" shortcut, and a "Remove demo data" action;
+    a slide-out **nav drawer** (hamburger menu) as the primary navigation,
+    with the bottom dock trimmed to 4 items (Today/My week/Add/Profile).
+13. **Editable notes and events** — calendar events (Week view) and board
+    items (Remember board) can now be edited and deleted after creation, not
+    just created and checked off.
+14. **Photo OCR and PDF import for the Add sheet** — "Scan text from a
+    photo" (on-device OCR via `tesseract.js`) and "Import from a PDF"
+    (`src/core/pdf-extract.ts`, via `pdfjs-dist`, surfaces candidate
+    events with a date/time for the user to tap and auto-fill the form);
+    plus a "Convert to calendar event" action when editing an existing
+    note/task/reminder.
+15. **Admin-created custom modules & family module requests** — an operator
+    can create a household-agnostic custom module from `/admin` and assign
+    it to specific families (`db/admin-queries.ts`'s
+    `createCustomModule`/`setCustomModuleAssignment`/`deleteCustomModule`);
+    families can use "Request a module" on the Modules screen
+    (`db/module-requests-queries.ts`) to ask for one that doesn't exist yet,
+    and an operator resolves the request (approved/declined, with an
+    optional note) from `/admin`.
+16. **Production hardening** — an authorization audit (every mutation/query
+    checks the resource belongs to the caller's own family), DB-backed rate
+    limiting (`lib/rate-limit.ts`) on auth-sensitive actions, root/route
+    error boundaries with server-side error logging
+    (`app/error.tsx`/`app/global-error.tsx`, `lib/log-error.ts`), a
+    password-reset flow (`lib/auth/password-reset.ts`, `lib/email.ts`), a
+    GitHub Actions CI pipeline (`.github/workflows/ci.yml`) running lint/
+    typecheck/test/build on every push, a first pass of Vitest unit tests,
+    security response headers (`next.config.ts`), a switch to
+    `drizzle-kit migrate` as the reviewed, tracked schema-change workflow
+    (see [§6](#6-environment--local-development)), and a documented
+    database backup policy (see [§10](#10-database-backup-policy)).
 
 Planned but not yet built (roadmap):
-11. Kitchen Display polish.
-12. PWA / push notifications (a `manifest.ts` and service-worker
-    registration already exist as a starting point; see `public/sw.js` and
-    the `useEffect` in `ground-control-app.tsx`).
-13. Production hardening (rate limiting, error monitoring, etc).
-14. More connector types beyond calendar feeds (maps, food/meal planning,
+17. Kitchen Display further polish.
+18. More connector types beyond calendar feeds (maps, food/meal planning,
     college schedules, etc.) — the module registry + `family_modules.config`
     jsonb pattern is designed to support this without further schema
     changes; each new connector type is just a new module registry entry +
     a parser function alongside `parseIcalFeed`.
-15. Invite links currently have no delivery mechanism built in (no SMS/email
+19. Invite links currently have no delivery mechanism built in (no SMS/email
     send) — the parent copies the link and shares it themselves (text,
     AirDrop, etc). Sending it automatically would need an email/SMS
     provider.
+20. No automated off-provider database backup job yet (see
+    [§10](#10-database-backup-policy)) and no email verification on signup.
 
 ---
 
@@ -405,21 +481,27 @@ Planned but not yet built (roadmap):
 - `src/core/modules.ts` (the static `modules` array derived from the
   registry) is currently unused by any component; `db/queries.ts`'s
   `getFamilyModules()` is the real source of per-family module state.
-- ESLint has a small number of pre-existing issues (mostly `React` unused
-  imports under the new JSX transform, and a handful of accessibility lint
-  rules on non-interactive `<div>`s used as modal backdrops — consistent
-  across `add-modal.tsx`/`add-member-modal.tsx`/`invite-link-modal.tsx`/
-  `edit-avatar-modal.tsx`). None are new/introduced by recent phases — check
+- ESLint has 8 pre-existing warnings (0 errors): plain `<img>` tags in
+  several components (`next/image` would be more optimal but isn't a drop-in
+  replacement for the icon-pack/avatar usage here), one `useEffect` missing-
+  dependency warning in `add-modal.tsx`, and one custom-font warning in
+  `layout.tsx`. None are new/introduced by recent phases — check
   `npm run lint` output before assuming a change caused a regression.
-- The `AddModal` component's category selector is currently generic
-  (event/task/note/reminder) and does not yet read from
-  `module-registry.ts`'s per-module categories — a natural follow-up once
-  more modules are connector-backed.
 - The invite-link ("connect to the app") flow has no way to **revoke** an
   already-generated link before it's claimed — it simply expires after 3
   days. Regenerating a new link for the same member doesn't invalidate an
   older, still-unexpired one, since the token is stateless (nothing is
   stored server-side to revoke).
+- No email verification on signup — a typo'd or someone-else's email can be
+  used to create a household. Low risk for a personal/family app, but worth
+  knowing before treating an email address as a verified identity.
+- Password-reset (and any future transactional) email goes through
+  `lib/email.ts`, which sends via Resend if `RESEND_API_KEY`/`EMAIL_FROM`
+  are set, and otherwise just logs the email to the server console — handy
+  for local dev, but means reset emails won't actually be delivered in a
+  deployment that hasn't configured Resend yet. The "forgot password" UI
+  always shows the same success message either way, so check server logs
+  first if a reset email doesn't arrive.
 
 ---
 
@@ -493,17 +575,26 @@ Access is gated by **two independent checks**, both of which must pass:
 ### What the admin console can see and do
 Everything under `/admin` (`app/admin/page.tsx`, `app/admin/actions.ts`,
 `app/components/admin-view.tsx`, `db/admin-queries.ts`) is scoped to exactly
-three things, for **any** family:
+these things, for **any** family:
 1. Family name, member **names** (for identification — "which household is
    this"), and the account owner's email.
-2. Which modules (Sports/School/Life/...) are enabled or disabled.
+2. Which modules (Sports/School/Life/Bills/custom...) are enabled or
+   disabled.
 3. A module's connector config: the feed URL, last-synced timestamp, and a
    button to trigger a sync (showing only a created/updated **count**, never
    the synced events' content).
+4. Creating/deleting a **custom module** (name, description, icon, colour)
+   and assigning/unassigning it to specific families — for a feature a
+   household needs that isn't in the built-in registry yet.
+5. Viewing and resolving **module requests** a family has submitted
+   (approve/decline with an optional note) via "Request a module" on their
+   Modules screen.
 
 ### What it deliberately cannot see
 `db/admin-queries.ts` only ever selects from `families`, `family_members`
-(names only), `users` (email only), `modules`, and `family_modules`. It has
+(names only), `users` (email only), `modules`, `family_modules`, and
+`module_requests` (the request text/reason a family chose to submit, not
+their calendar/board data). It has
 **no import of, and never queries, the `events` or `board_items` tables** —
 a family's calendar entries, sticky notes, tasks, reminders, and countdowns
 are structurally unreachable from any admin code path, not merely hidden by

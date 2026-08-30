@@ -19,22 +19,52 @@ tasks and reminders everyone needs to see.
 
 This creates one shared login for your whole household — everyone in the
 family signs in with the same email/password, then picks their own profile
-inside the app (see [Switching profiles](#switching-profiles) below).
+inside the app (see [Family Admin](#family-admin) below).
 
 ### Log in
 
 Go to the **Login** page, enter your household's email and password, and
 tap **Log in**.
 
+### Forgot your password?
+
+Tap **Forgot your password?** on the Login page, enter your household's
+email, and tap **Send reset link**. If that email matches an account,
+you'll get an email with a link to set a new password. The link expires
+after a short time and can only be used once.
+
 ### Log out
 
-Open the **Profile** tab and tap **Log out** at the bottom.
+Open the nav drawer (tap the **menu icon** in the top-left of the header) or
+the **Profile** tab, and tap **Log out**.
 
 ---
 
-## The four main screens
+## Getting around
 
-Tap the icons along the bottom of the app to switch screens:
+### The bottom dock
+
+Four buttons are always available along the bottom of the app:
+
+- **🏠 Today** — your daily briefing
+- **📅 My week** — a calendar view of everyone's upcoming events
+- **➕ Add** (the prominent centre button) — opens the Add sheet to create
+  an event, task, note or reminder
+- **👤 Profile** — your own mission stats and account actions
+
+### The menu (nav drawer)
+
+Tap the **menu icon** in the top-left of the header to open the full menu,
+which also includes:
+
+- **Remember board** — the shared notice board (sticky notes, tasks,
+  reminders, countdowns)
+- **Profile**
+- **Family Admin** — adults only; manage household members and modules
+  (see [below](#family-admin))
+- **Kitchen Display** — a big, glanceable wall-display layout
+- **Help** — this guide, right inside the app
+- **Log out**
 
 ### 🏠 Today
 
@@ -46,28 +76,31 @@ Your daily briefing:
 
 ### 📅 My week
 
-A calendar view of everyone's upcoming events for the week.
+A calendar view of everyone's upcoming events for the week. Tap an event to
+view, edit, or delete it.
 
-### 📌 Remember
+### 📌 Remember board
 
 The shared notice board — sticky notes, tasks, reminders and countdowns.
-Tap a task to check it off; use the **+** button to add something new.
+Tap a task to check it off, tap a note to edit it, or use the **+** button
+to add something new.
 
 ### 👤 Profile
 
-- See who's currently active, and tap another family member's card to
-  switch to their view
+- Your avatar, role, nickname, and last-visit time
 - Your mission stats (events this week, notes & tasks)
-- **Manage modules** — turn optional features on/off (see below)
-- **Help** — a quick guide to every screen (see [Help](#help) below)
+- **Family Admin** — adults only (see below)
+- **Kitchen Display**
+- A **dark/light theme** toggle
+- **Help**
 - **Log out**
 
 ---
 
 ## Adding something
 
-Tap the **+** button in the bottom dock (or the round **+** on the Remember
-screen) to open the Add sheet. Choose a type:
+Tap the **+** button in the bottom dock (or on the Remember board) to open
+the Add sheet. Choose a type:
 
 | Type | Use it for |
 |------|-----------|
@@ -79,22 +112,46 @@ screen) to open the Add sheet. Choose a type:
 Fill in the details, pick **who it's for** using the avatar row, and tap
 **Add**. It appears immediately and syncs in the background.
 
+You can also skip typing everything by hand:
+
+- **Scan text from a photo** — take or choose a photo (e.g. a permission
+  slip or flyer) and Ground Control reads the text on-device and drops it
+  into the form for you to review.
+- **Import from a PDF** — pick a PDF (e.g. a term calendar) and Ground
+  Control pulls out candidate events with a date/time; tap one to auto-fill
+  the form.
+
+When editing an existing note, task, or reminder, a **Convert to calendar
+event** button lets you turn it into a dated event without starting over.
+
 ---
 
-## Switching profiles
+## Family Admin
 
-Every family member (including kids and pets) has their own coloured
-profile. Tap the avatar circle in the top-right header, or go to **Profile**,
-and tap any member's card to see the app from their point of view — their
-own next event, their own tasks and notes.
+Adults can reach **Family Admin** from the Profile screen or the menu. It's
+the control centre for your household:
 
----
+### Household Crew
 
-## Editing a family member
+- Tap any family member's card to switch the active profile and see the
+  app from their point of view.
+- Tap the **pencil icon** on a card to edit that person's name, role,
+  avatar, or colour.
+- Tap **Add family member** to add a new person or pet.
+- For a member without their own login, tap the **link icon** to generate a
+  shareable **connect to the app** link (see below).
+- Once someone has connected their own login, their card shows a
+  **Connected** badge instead of the link button.
 
-On the **Profile** screen, each family member's card has a small pencil
-button (parents/commanders only). Tap it to change that person's name,
-role, avatar icon, or colour, then tap **Save**.
+### Modules & calendars
+
+Tap **Manage modules** to jump to the [Modules screen](#managing-modules).
+
+### Demo data
+
+If you started from the built-in demo content, tap **Remove demo data** to
+delete the sample welcome note, task, and event that came with your new
+family.
 
 ---
 
@@ -104,7 +161,7 @@ By default, everyone in the household signs in with the same shared
 email/password. If someone — a teenager, say — wants their **own** personal
 login on their own phone instead:
 
-1. Go to **Profile**, find their card, and tap the **link icon**.
+1. Go to **Family Admin**, find their card, and tap the **link icon**.
 2. Ground Control generates a shareable link and shows a **Copy link**
    button. Share it however you like — text message, AirDrop, etc.
 3. They open the link on their own device, choose an email and password,
@@ -120,9 +177,9 @@ button.
 
 ## Help
 
-Tap **Help** on the **Profile** screen for a quick, illustrated walkthrough
-of every screen and icon in Ground Control — handy for a first-time family
-member or anyone who forgets what a button does.
+Tap **Help** on the **Profile** screen or in the menu for a quick,
+illustrated walkthrough of every screen and icon in Ground Control — handy
+for a first-time family member or anyone who forgets what a button does.
 
 ---
 
@@ -130,7 +187,8 @@ member or anyone who forgets what a button does.
 
 Ground Control is modular — not every household needs every feature.
 
-1. Go to **Profile → Manage modules**.
+1. Go to **Family Admin → Manage modules** (or **Profile → Manage
+   modules**).
 2. **Core** modules (Planner, Board) are always on — these are the
    essentials and can't be turned off.
 3. **Available** modules — flip the switch to turn a module on or off for
@@ -138,6 +196,8 @@ Ground Control is modular — not every household needs every feature.
    - **Sports** — fixtures, training and team schedules
    - **School** — term dates, forms and school activities
    - **Life** — health, chores, shopping and everyday household stuff
+   - **Bills & Renewals** — subscriptions, utilities, insurance and
+     renewal dates
 
 Changes apply to everyone in the household immediately.
 
@@ -158,22 +218,15 @@ starting with `webcal://` or ending in `.ics`):
 
 ### Your services
 
-For anything that isn't Sports/School/Life — a college timetable, a
+For anything that isn't a built-in module — a college timetable, a
 one-off club — add it under **Your services** instead. Give it a name and
 (optionally) a calendar feed link, and it works the same way.
 
----
+### Don't see a module you need?
 
-## Display modes
-
-At the top of the app you can switch how Ground Control is shown:
-
-- **Mobile Phone** — the everyday phone-sized view (default)
-- **Kitchen Display** — a larger wall/tablet-friendly layout, good for a
-  shared family tablet or screen mounted in the kitchen
-- **Full Screen** — a fluid layout that fills a larger browser window
-
-You can also toggle **dark mode** with the sun/moon icon in the top-right.
+Use **Request a module** at the bottom of the Modules screen to suggest a
+new one — give it a title and, if you like, a short reason. It's sent to
+whoever manages your Ground Control deployment.
 
 ---
 
