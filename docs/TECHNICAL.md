@@ -518,3 +518,52 @@ the same way this was done for `feedUrl`/`lastSyncedAt` — but any change that
 would let `db/admin-queries.ts` join to `events`/`board_items` (or return
 their contents from an admin action) should be treated as a breaking change
 to this guarantee and called out explicitly in a PR/commit message.
+
+---
+
+## 10. Database backup policy
+
+The database is Prisma Postgres (host `db.prisma.io`, provisioned through
+the Vercel integration — see `DATABASE_URL`/`POSTGRES_URL`/
+`PRISMA_DATABASE_URL` in [§6](#6-environment--local-development)).
+
+**Automatic, provider-side:** on paid Prisma Postgres plans, Prisma takes a
+daily snapshot of the database (only on days with activity) and retains a
+plan-dependent number of them. Restores are done from the **Backups** tab of
+the database's page in the [Prisma Console](https://console.prisma.io/) —
+there is nothing to configure in this repo for that baseline protection.
+Anything written after the most recent snapshot is not covered, so this
+alone is not a substitute for a pre-change safety net (see below).
+
+**Point-in-time recovery (PITR):** Prisma's own docs are currently
+inconsistent about whether this has shipped yet for Prisma Postgres — check
+the [Backups](https://www.prisma.io/docs/postgres/database/backups) page in
+the Prisma docs before relying on it, rather than assuming it's available.
+
+**Before risky changes (recommended manual step):** take an explicit backup
+before running a destructive migration, a `db:push --force`, or a bulk data
+edit against production. With the Postgres client tools installed locally
+(`pg_dump`/`psql` — not bundled with this project, since they're system
+binaries, not npm packages) and a **direct** (non-pooled) connection string:
+
+```bash
+pg_dump --no-owner --format=custom \
+  --dbname="$DIRECT_DATABASE_URL" \
+  --file="backup-$(date +%Y%m%d-%H%M%S).dump"
+```
+
+Store that `.dump` file somewhere outside the repo (it contains real
+household data) — `*.dump` is gitignored, but don't rely on that alone;
+keep backups out of the repo entirely. To restore:
+
+```bash
+pg_restore --no-owner --clean --if-exists \
+  --dbname="$DIRECT_DATABASE_URL" backup-<timestamp>.dump
+```
+
+**What's not yet in place:** there is no automated off-provider backup job
+(e.g. a scheduled GitHub Action running `pg_dump` to external storage). If
+Ground Control ever holds data that must survive a full loss of the Prisma
+account/project (not just a bad migration), that would be the next step —
+out of scope here since it requires provisioning external storage and
+credentials outside this repo.
