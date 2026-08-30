@@ -363,7 +363,7 @@ export function GroundControlApp({
     const previous = customServices;
     setCustomServices((prev) => prev.filter((s) => s.id !== id));
     try {
-      await deleteCustomServiceAction(id, familyId);
+      await deleteCustomServiceAction(id);
     } catch (err) {
       console.error("Failed to delete custom service", err);
       setCustomServices(previous);
@@ -421,7 +421,7 @@ export function GroundControlApp({
   };
 
   const handleRemoveDemoData = async () => {
-    const result = await removeDemoDataAction(familyId);
+    const result = await removeDemoDataAction();
     setEvents((prev) => prev.filter((e) => !e.isDemo));
     setBoard((prev) => prev.filter((b) => !b.isDemo));
     return result;

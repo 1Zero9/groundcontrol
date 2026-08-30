@@ -219,8 +219,10 @@ export async function createFamilyMember(input: NewFamilyMemberInput): Promise<F
   return mapMember(row);
 }
 
+/** Scoped to `familyId` so one household can't edit another's member by guessing an id. */
 export async function updateFamilyMemberAvatar(
   memberId: string,
+  familyId: string,
   avatarEmoji: string
 ): Promise<FamilyMember> {
   const db = getDb();
@@ -228,8 +230,12 @@ export async function updateFamilyMemberAvatar(
   const [row] = await db
     .update(familyMembers)
     .set({ avatarEmoji })
-    .where(eq(familyMembers.id, memberId))
+    .where(and(eq(familyMembers.id, memberId), eq(familyMembers.familyId, familyId)))
     .returning();
+
+  if (!row) {
+    throw new Error(`Family member ${memberId} not found`);
+  }
 
   return mapMember(row);
 }
@@ -244,8 +250,10 @@ export type UpdateFamilyMemberInput = Partial<{
   title: string;
 }>;
 
+/** Scoped to `familyId` so one household can't edit another's member by guessing an id. */
 export async function updateFamilyMember(
   memberId: string,
+  familyId: string,
   input: UpdateFamilyMemberInput
 ): Promise<FamilyMember> {
   const db = getDb();
@@ -253,8 +261,12 @@ export async function updateFamilyMember(
   const [row] = await db
     .update(familyMembers)
     .set(input)
-    .where(eq(familyMembers.id, memberId))
+    .where(and(eq(familyMembers.id, memberId), eq(familyMembers.familyId, familyId)))
     .returning();
+
+  if (!row) {
+    throw new Error(`Family member ${memberId} not found`);
+  }
 
   return mapMember(row);
 }
@@ -264,12 +276,12 @@ export async function updateFamilyMember(
  * the "Last visit" line on their Profile screen. Fire-and-forget from the UI
  * (see handleSelectUser in ground-control-app.tsx); failures are non-fatal.
  */
-export async function touchMemberLastSeen(memberId: string): Promise<void> {
+export async function touchMemberLastSeen(memberId: string, familyId: string): Promise<void> {
   const db = getDb();
   await db
     .update(familyMembers)
     .set({ lastSeenAt: new Date() })
-    .where(eq(familyMembers.id, memberId));
+    .where(and(eq(familyMembers.id, memberId), eq(familyMembers.familyId, familyId)));
 }
 
 /**
@@ -356,7 +368,11 @@ export type UpdateEventInput = {
  * the category can change, this recomputes moduleKey/moduleId exactly like
  * createEvent does, so the event's module-visibility filtering stays correct.
  */
-export async function updateEvent(id: string, input: UpdateEventInput): Promise<Event> {
+export async function updateEvent(
+  id: string,
+  familyId: string,
+  input: UpdateEventInput
+): Promise<Event> {
   const db = getDb();
   const moduleKey = getModuleByCategory(input.category)?.key ?? "planner";
   const moduleId = await getModuleId(moduleKey);
@@ -378,7 +394,7 @@ export async function updateEvent(id: string, input: UpdateEventInput): Promise<
       accentColor: input.accentColor,
       updatedAt: new Date(),
     })
-    .where(eq(events.id, id))
+    .where(and(eq(events.id, id), eq(events.familyId, familyId)))
     .returning();
 
   if (!row) {
@@ -388,9 +404,10 @@ export async function updateEvent(id: string, input: UpdateEventInput): Promise<
   return mapEvent(row, moduleKey);
 }
 
-export async function deleteEvent(id: string): Promise<void> {
+/** Scoped to `familyId` so one household can't delete another's event by guessing an id. */
+export async function deleteEvent(id: string, familyId: string): Promise<void> {
   const db = getDb();
-  await db.delete(events).where(eq(events.id, id));
+  await db.delete(events).where(and(eq(events.id, id), eq(events.familyId, familyId)));
 }
 
 export type NewBoardItemInput = {
@@ -442,7 +459,12 @@ export type UpdateBoardItemInput = {
  * Updates an existing board item's text/details (note, task, or reminder).
  * Mirrors updateEvent's approach for events.
  */
-export async function updateBoardItem(id: string, input: UpdateBoardItemInput): Promise<BoardItem> {
+/** Scoped to `familyId` so one household can't edit another's board item by guessing an id. */
+export async function updateBoardItem(
+  id: string,
+  familyId: string,
+  input: UpdateBoardItemInput
+): Promise<BoardItem> {
   const db = getDb();
 
   const [row] = await db
@@ -456,7 +478,7 @@ export async function updateBoardItem(id: string, input: UpdateBoardItemInput): 
       color: input.color,
       customServiceId: input.customServiceId,
     })
-    .where(eq(boardItems.id, id))
+    .where(and(eq(boardItems.id, id), eq(boardItems.familyId, familyId)))
     .returning();
 
   if (!row) {
@@ -466,12 +488,13 @@ export async function updateBoardItem(id: string, input: UpdateBoardItemInput): 
   return mapBoardItem(row, "board");
 }
 
-export async function toggleBoardItem(id: string): Promise<BoardItem> {
+/** Scoped to `familyId` so one household can't toggle another's board item by guessing an id. */
+export async function toggleBoardItem(id: string, familyId: string): Promise<BoardItem> {
   const db = getDb();
   const [existing] = await db
     .select()
     .from(boardItems)
-    .where(eq(boardItems.id, id))
+    .where(and(eq(boardItems.id, id), eq(boardItems.familyId, familyId)))
     .limit(1);
 
   if (!existing) {
@@ -487,9 +510,12 @@ export async function toggleBoardItem(id: string): Promise<BoardItem> {
   return mapBoardItem(row);
 }
 
-export async function removeBoardItem(id: string): Promise<void> {
+/** Scoped to `familyId` so one household can't delete another's board item by guessing an id. */
+export async function removeBoardItem(id: string, familyId: string): Promise<void> {
   const db = getDb();
-  await db.delete(boardItems).where(eq(boardItems.id, id));
+  await db
+    .delete(boardItems)
+    .where(and(eq(boardItems.id, id), eq(boardItems.familyId, familyId)));
 }
 
 /**
