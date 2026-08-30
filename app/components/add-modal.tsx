@@ -353,7 +353,7 @@ export function AddModal({
                 aria-label={isEditingBoardItem ? "Delete note" : "Delete event"}
                 title="Delete"
               >
-                <Trash2 size={17} />
+                <Trash2 size={16} />
               </button>
             )}
 
@@ -376,7 +376,7 @@ export function AddModal({
               onClick={onClose}
               aria-label="Close"
             >
-              <X size={18} />
+              <X size={20} />
             </button>
           </div>
         </div>

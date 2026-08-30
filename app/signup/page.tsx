@@ -5,6 +5,7 @@ import { getSession } from "../../lib/auth/session";
 import { signupAction } from "../../lib/auth/actions";
 import { AuthShell, AuthCard } from "../components/auth-shell";
 import { PasswordField } from "../components/password-field";
+import { SubmitButton } from "../components/submit-button";
 
 export default async function SignupPage({
   searchParams,
@@ -66,9 +67,7 @@ export default async function SignupPage({
               autoComplete="new-password"
             />
           </label>
-          <button type="submit" className="auth-submit-btn">
-            Create family
-          </button>
+          <SubmitButton pendingLabel="Creating…">Create family</SubmitButton>
         </form>
 
         <p className="auth-switch">

@@ -5,6 +5,7 @@ import { resetPasswordAction } from "../../lib/auth/actions";
 import { verifyPasswordResetToken } from "../../lib/auth/password-reset";
 import { AuthShell, AuthCard } from "../components/auth-shell";
 import { PasswordField } from "../components/password-field";
+import { SubmitButton } from "../components/submit-button";
 
 export default async function ResetPasswordPage({
   searchParams,
@@ -55,9 +56,7 @@ export default async function ResetPasswordPage({
               autoComplete="new-password"
             />
           </label>
-          <button type="submit" className="auth-submit-btn">
-            Reset password
-          </button>
+          <SubmitButton pendingLabel="Resetting…">Reset password</SubmitButton>
         </form>
       </AuthCard>
     </AuthShell>

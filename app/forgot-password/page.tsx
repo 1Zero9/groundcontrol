@@ -4,6 +4,7 @@ import { Mail } from "lucide-react";
 import { getSession } from "../../lib/auth/session";
 import { requestPasswordResetAction } from "../../lib/auth/actions";
 import { AuthShell, AuthCard } from "../components/auth-shell";
+import { SubmitButton } from "../components/submit-button";
 
 export default async function ForgotPasswordPage({
   searchParams,
@@ -46,9 +47,7 @@ export default async function ForgotPasswordPage({
               />
             </div>
           </label>
-          <button type="submit" className="auth-submit-btn">
-            Send reset link
-          </button>
+          <SubmitButton pendingLabel="Sending…">Send reset link</SubmitButton>
         </form>
 
         <p className="auth-switch">

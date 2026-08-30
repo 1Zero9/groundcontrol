@@ -5,6 +5,7 @@ import { getSession } from "../../lib/auth/session";
 import { loginAction } from "../../lib/auth/actions";
 import { AuthShell, AuthCard } from "../components/auth-shell";
 import { PasswordField } from "../components/password-field";
+import { SubmitButton } from "../components/submit-button";
 
 export default async function LoginPage({
   searchParams,
@@ -48,9 +49,7 @@ export default async function LoginPage({
           <p className="auth-switch" style={{ marginTop: -6 }}>
             <Link href="/forgot-password">Forgot your password?</Link>
           </p>
-          <button type="submit" className="auth-submit-btn">
-            Log in
-          </button>
+          <SubmitButton pendingLabel="Logging in…">Log in</SubmitButton>
         </form>
 
         <p className="auth-switch">
