@@ -57,6 +57,13 @@
       "when": 1788031404897,
       "tag": "0007_shocking_human_fly",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788108349941,
+      "tag": "0008_brave_supreme_intelligence",
+      "breakpoints": true
     }
   ]
 }

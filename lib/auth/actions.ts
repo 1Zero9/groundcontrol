@@ -11,6 +11,7 @@ import {
 import { hashPassword, verifyPassword } from "./password";
 import { clearSessionCookie, getSession, setSessionCookie } from "./session";
 import { createMemberInviteToken, verifyMemberInviteToken } from "./member-invite";
+import { checkRateLimit, getClientIp, rateLimitMessage, resetRateLimit } from "../rate-limit";
 
 function redirectWithError(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -24,6 +25,12 @@ const signupSchema = z.object({
 });
 
 export async function signupAction(formData: FormData) {
+  const ip = await getClientIp();
+  const limit = await checkRateLimit(`signup:ip:${ip}`, { max: 5, windowSeconds: 60 * 60 });
+  if (!limit.allowed) {
+    redirectWithError("/signup", rateLimitMessage(limit));
+  }
+
   const parsed = signupSchema.safeParse({
     familyName: formData.get("familyName"),
     ownerName: formData.get("ownerName"),
@@ -58,6 +65,12 @@ const loginSchema = z.object({
 });
 
 export async function loginAction(formData: FormData) {
+  const ip = await getClientIp();
+  const ipLimit = await checkRateLimit(`login:ip:${ip}`, { max: 20, windowSeconds: 15 * 60 });
+  if (!ipLimit.allowed) {
+    redirectWithError("/login", rateLimitMessage(ipLimit));
+  }
+
   const parsed = loginSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),
@@ -67,10 +80,21 @@ export async function loginAction(formData: FormData) {
     redirectWithError("/login", parsed.error.issues[0]?.message ?? "Invalid input");
   }
 
+  const emailLimit = await checkRateLimit(`login:email:${parsed.data.email}`, {
+    max: 8,
+    windowSeconds: 15 * 60,
+  });
+  if (!emailLimit.allowed) {
+    redirectWithError("/login", rateLimitMessage(emailLimit));
+  }
+
   const user = await getUserByEmail(parsed.data.email);
   if (!user || !verifyPassword(parsed.data.password, user.passwordHash)) {
     redirectWithError("/login", "Incorrect email or password.");
   }
+
+  await resetRateLimit(`login:email:${parsed.data.email}`);
+  await resetRateLimit(`login:ip:${ip}`);
 
   await setSessionCookie({ userId: user.id, familyId: user.familyId });
   redirect("/");
@@ -103,6 +127,12 @@ const claimInviteSchema = z.object({
 });
 
 export async function claimMemberInviteAction(formData: FormData) {
+  const ip = await getClientIp();
+  const limit = await checkRateLimit(`invite-claim:ip:${ip}`, { max: 8, windowSeconds: 15 * 60 });
+  if (!limit.allowed) {
+    redirectWithError("/invite", rateLimitMessage(limit));
+  }
+
   const parsed = claimInviteSchema.safeParse({
     token: formData.get("token"),
     email: formData.get("email"),

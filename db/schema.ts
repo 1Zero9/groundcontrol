@@ -236,6 +236,26 @@ export const moduleRequests = pgTable("module_requests", {
 });
 
 // ---------------------------------------------------------------------------
+// Rate limiting — fixed-window attempt counters for auth endpoints (login,
+// signup, invite-claim). DB-backed rather than in-memory because Vercel's
+// serverless functions are stateless/multi-instance, so a Map in process
+// memory wouldn't actually stop distributed brute-forcing. See lib/rate-limit.ts.
+// ---------------------------------------------------------------------------
+
+export const rateLimits = pgTable("rate_limits", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  // e.g. "login:email:foo@example.com" or "signup:ip:1.2.3.4".
+  key: text("key").notNull().unique(),
+  attempts: integer("attempts").notNull().default(1),
+  windowStart: timestamp("window_start", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+// ---------------------------------------------------------------------------
 // Events (generic core entity; modules attach structured `details`)
 // ---------------------------------------------------------------------------
 
