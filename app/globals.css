@@ -1200,11 +1200,13 @@ input, textarea, select {
 .form-row-duo {
   display: flex;
   gap: 10px;
+  min-width: 0;
 }
 
 .input-with-icon {
   position: relative;
   flex: 1;
+  min-width: 0;
 }
 
 .field-icon {
