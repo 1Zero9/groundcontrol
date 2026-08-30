@@ -459,19 +459,24 @@ The app was built in phases; each is a discrete, shippable slice:
     `drizzle-kit migrate` as the reviewed, tracked schema-change workflow
     (see [§6](#6-environment--local-development)), and a documented
     database backup policy (see [§10](#10-database-backup-policy)).
+17. **Invite-link revocation** — generating a new "connect to the app" link
+    for a family member now invalidates any older, still-unexpired one for
+    that member. See the invite-link bullet in
+    [§8](#8-known-gaps--things-to-be-aware-of) for how the version-bump
+    scheme works.
 
 Planned but not yet built (roadmap):
-17. Kitchen Display further polish.
-18. More connector types beyond calendar feeds (maps, food/meal planning,
+18. Kitchen Display further polish.
+19. More connector types beyond calendar feeds (maps, food/meal planning,
     college schedules, etc.) — the module registry + `family_modules.config`
     jsonb pattern is designed to support this without further schema
     changes; each new connector type is just a new module registry entry +
     a parser function alongside `parseIcalFeed`.
-19. Invite links currently have no delivery mechanism built in (no SMS/email
+20. Invite links currently have no delivery mechanism built in (no SMS/email
     send) — the parent copies the link and shares it themselves (text,
     AirDrop, etc). Sending it automatically would need an email/SMS
     provider.
-20. No automated off-provider database backup job yet (see
+21. No automated off-provider database backup job yet (see
     [§10](#10-database-backup-policy)) and no email verification on signup.
 
 ---
@@ -487,11 +492,16 @@ Planned but not yet built (roadmap):
   dependency warning in `add-modal.tsx`, and one custom-font warning in
   `layout.tsx`. None are new/introduced by recent phases — check
   `npm run lint` output before assuming a change caused a regression.
-- The invite-link ("connect to the app") flow has no way to **revoke** an
-  already-generated link before it's claimed — it simply expires after 3
-  days. Regenerating a new link for the same member doesn't invalidate an
-  older, still-unexpired one, since the token is stateless (nothing is
-  stored server-side to revoke).
+- The invite-link ("connect to the app") flow supports revocation: the
+  token is stateless (family/member id + expiry, HMAC-signed — see
+  `lib/auth/member-invite.ts`) but also embeds a snapshot of
+  `family_members.invite_token_version` at issue time. Generating a new
+  link (`generateMemberInviteLinkAction`) bumps that column and
+  auto-invalidates any older, still-unexpired link; `revokeMemberInviteLinkAction`
+  bumps it without minting a replacement, for an explicit "Revoke this
+  link" action in `invite-link-modal.tsx`. Verification (both on the
+  `/invite` page and in `claimMemberInviteAction`) rejects a token whose
+  `v` no longer matches the member's current version.
 - No email verification on signup — a typo'd or someone-else's email can be
   used to create a household. Low risk for a personal/family app, but worth
   knowing before treating an email address as a verified identity.

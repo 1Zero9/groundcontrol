@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import {
   assertMemberInviteEligible,
+  bumpMemberInviteVersion,
   claimFamilyMemberInvite,
   createFamilyWithOwner,
+  getMemberInviteVersion,
   getUserByEmail,
   getUserById,
   updateUserPassword,
@@ -121,7 +123,24 @@ export async function generateMemberInviteLinkAction(memberId: string): Promise<
     throw new Error("You must be signed in to do that.");
   }
   await assertMemberInviteEligible(session.familyId, memberId);
-  return createMemberInviteToken({ familyId: session.familyId, memberId });
+  // Bumping the version here — rather than just signing a new token —
+  // invalidates any older, still-unexpired link for this member.
+  const v = await bumpMemberInviteVersion(memberId);
+  return createMemberInviteToken({ familyId: session.familyId, memberId, v });
+}
+
+/**
+ * Revokes any outstanding "connect to the app" link for a member without
+ * issuing a replacement — just bumps the version so a previously shared
+ * link (still within its 3-day window) stops working.
+ */
+export async function revokeMemberInviteLinkAction(memberId: string): Promise<void> {
+  const session = await getSession();
+  if (!session) {
+    throw new Error("You must be signed in to do that.");
+  }
+  await assertMemberInviteEligible(session.familyId, memberId);
+  await bumpMemberInviteVersion(memberId);
 }
 
 const claimInviteSchema = z.object({
@@ -149,6 +168,11 @@ export async function claimMemberInviteAction(formData: FormData) {
 
   const invite = verifyMemberInviteToken(parsed.data.token);
   if (!invite) {
+    redirectWithError("/invite", "This invite link is invalid or has expired.");
+  }
+
+  const currentVersion = await getMemberInviteVersion(invite.memberId);
+  if (currentVersion === null || currentVersion !== invite.v) {
     redirectWithError("/invite", "This invite link is invalid or has expired.");
   }
 

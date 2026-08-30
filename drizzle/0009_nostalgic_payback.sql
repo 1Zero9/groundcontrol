@@ -1,0 +1,1 @@
+ALTER TABLE "family_members" ADD COLUMN "invite_token_version" integer DEFAULT 0 NOT NULL;

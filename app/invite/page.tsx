@@ -7,6 +7,7 @@ import { verifyMemberInviteToken } from "../../lib/auth/member-invite";
 import { getFamilyMemberRawById } from "../../db/queries";
 import { AuthShell, AuthCard } from "../components/auth-shell";
 import { PasswordField } from "../components/password-field";
+import { SubmitButton } from "../components/submit-button";
 
 export default async function InvitePage({
   searchParams,
@@ -22,7 +23,12 @@ export default async function InvitePage({
   const invite = verifyMemberInviteToken(token);
   const member = invite ? await getFamilyMemberRawById(invite.memberId) : null;
 
-  if (!invite || !member || member.familyId !== invite.familyId) {
+  if (
+    !invite ||
+    !member ||
+    member.familyId !== invite.familyId ||
+    member.inviteTokenVersion !== invite.v
+  ) {
     return (
       <AuthShell>
         <AuthCard>
@@ -91,9 +97,7 @@ export default async function InvitePage({
               autoComplete="new-password"
             />
           </label>
-          <button type="submit" className="auth-submit-btn">
-            Connect to Ground Control
-          </button>
+          <SubmitButton pendingLabel="Connecting…">Connect to Ground Control</SubmitButton>
         </form>
       </AuthCard>
     </AuthShell>

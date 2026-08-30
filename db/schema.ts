@@ -124,6 +124,10 @@ export const familyMembers = pgTable("family_members", {
   userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
   // Last time this profile was switched to / active in the app.
   lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+  // Bumped every time a new "connect to the app" invite link is generated
+  // for this member. The link's token embeds the version at issue time, so
+  // generating a new link invalidates any older, still-unexpired one.
+  inviteTokenVersion: integer("invite_token_version").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

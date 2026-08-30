@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { getDb } from "./index";
 import { families, familyMembers, familyModules, modules, users } from "./schema";
 import { seedDemoDataForFamily } from "./queries";
@@ -109,6 +109,39 @@ export async function assertMemberInviteEligible(
   if (row.userId) {
     throw new Error("This family member is already connected.");
   }
+}
+
+/**
+ * Bumps a family member's invite-token version and returns the new value.
+ * Called every time a fresh "connect to the app" link is generated; since
+ * the token embeds the version at issue time, this atomically invalidates
+ * any older, still-unexpired link for the same member.
+ */
+export async function bumpMemberInviteVersion(memberId: string): Promise<number> {
+  const db = getDb();
+  const [row] = await db
+    .update(familyMembers)
+    .set({ inviteTokenVersion: sql`${familyMembers.inviteTokenVersion} + 1` })
+    .where(eq(familyMembers.id, memberId))
+    .returning({ inviteTokenVersion: familyMembers.inviteTokenVersion });
+  if (!row) {
+    throw new Error("Family member not found.");
+  }
+  return row.inviteTokenVersion;
+}
+
+/**
+ * Reads a family member's current invite-token version, used to check
+ * whether a previously issued invite link is still the active one.
+ */
+export async function getMemberInviteVersion(memberId: string): Promise<number | null> {
+  const db = getDb();
+  const [row] = await db
+    .select({ inviteTokenVersion: familyMembers.inviteTokenVersion })
+    .from(familyMembers)
+    .where(eq(familyMembers.id, memberId))
+    .limit(1);
+  return row?.inviteTokenVersion ?? null;
 }
 
 export type ClaimFamilyMemberInviteInput = {
