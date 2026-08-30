@@ -44,6 +44,7 @@ import {
   adminSetModuleEnabledAction,
   adminSyncCustomServiceFeedAction,
   adminSyncModuleFeedAction,
+  adminUpdateCustomModuleAction,
 } from "../admin/actions";
 
 interface SyncResult {
@@ -703,13 +704,21 @@ function AdminModuleCatalogItemRow({
   item,
   families,
   onDeleted,
+  onUpdated,
 }: {
   item: AdminModuleCatalogItem;
   families: AdminFamilySummary[];
   onDeleted: (id: string) => void;
+  onUpdated: (item: AdminModuleCatalogItem) => void;
 }) {
   const [assignedFamilies, setAssignedFamilies] = useState(item.assignedFamilies);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(item.name);
+  const [description, setDescription] = useState(item.description ?? "");
+  const [icon, setIcon] = useState(item.icon ?? "");
+  const [colour, setColour] = useState(item.colour ?? "");
+  const [isSaving, setIsSaving] = useState(false);
   const assignedIds = new Set(assignedFamilies.map((f) => f.familyId));
 
   const handleToggleAssign = async (familyId: string, familyName: string, assign: boolean) => {
@@ -738,6 +747,86 @@ function AdminModuleCatalogItemRow({
     }
   };
 
+  const handleStartEdit = () => {
+    setName(item.name);
+    setDescription(item.description ?? "");
+    setIcon(item.icon ?? "");
+    setColour(item.colour ?? "");
+    setIsEditing(true);
+  };
+
+  const handleSaveEdit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setIsSaving(true);
+    try {
+      const input = {
+        name: name.trim(),
+        description: description.trim() || undefined,
+        icon: icon.trim() || undefined,
+        colour: colour.trim() || undefined,
+      };
+      await adminUpdateCustomModuleAction(item.id, input);
+      onUpdated({ ...item, ...input });
+      setIsEditing(false);
+    } catch (err) {
+      console.error("Failed to update module", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <form className="module-card module-card-column add-service-form" onSubmit={handleSaveEdit}>
+        <div className="form-field-group">
+          <input
+            type="text"
+            className="add-service-input"
+            placeholder="Module name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+        </div>
+        <div className="form-field-group">
+          <input
+            type="text"
+            className="add-service-input"
+            placeholder="Short description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+        <div className="module-feed-input-row">
+          <input
+            type="text"
+            className="add-service-input"
+            placeholder="Icon (emoji, optional)"
+            value={icon}
+            onChange={(e) => setIcon(e.target.value)}
+          />
+          <input
+            type="text"
+            className="add-service-input"
+            placeholder="Colour, e.g. #6C63FF (optional)"
+            value={colour}
+            onChange={(e) => setColour(e.target.value)}
+          />
+        </div>
+        <div className="module-feed-input-row">
+          <button type="submit" className="add-service-btn" disabled={isSaving || !name.trim()}>
+            <Check size={16} />
+            {isSaving ? "Saving…" : "Save changes"}
+          </button>
+          <button type="button" className="feed-cancel-btn" onClick={() => setIsEditing(false)}>
+            Cancel
+          </button>
+        </div>
+      </form>
+    );
+  }
+
   return (
     <div className="module-card module-card-column">
       <div className="module-card-top-row">
@@ -748,16 +837,27 @@ function AdminModuleCatalogItemRow({
             {item.description && <span className="module-card-desc">{item.description}</span>}
           </div>
         </div>
-        <button
-          type="button"
-          className="custom-service-delete-btn"
-          onClick={handleDelete}
-          disabled={isDeleting}
-          aria-label={`Delete ${item.name}`}
-          title="Delete this module"
-        >
-          <Trash2 size={16} />
-        </button>
+        <div className="module-card-actions">
+          <button
+            type="button"
+            className="custom-service-delete-btn"
+            onClick={handleStartEdit}
+            aria-label={`Edit ${item.name}`}
+            title="Edit this module"
+          >
+            <Pencil size={16} />
+          </button>
+          <button
+            type="button"
+            className="custom-service-delete-btn"
+            onClick={handleDelete}
+            disabled={isDeleting}
+            aria-label={`Delete ${item.name}`}
+            title="Delete this module"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
       </div>
 
       <div className="module-feeds-list">
@@ -807,6 +907,9 @@ function AdminModuleCatalogSection({
             item={item}
             families={families}
             onDeleted={(id) => setItems((prev) => prev.filter((m) => m.id !== id))}
+            onUpdated={(updated) =>
+              setItems((prev) => prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)))
+            }
           />
         ))}
       </div>

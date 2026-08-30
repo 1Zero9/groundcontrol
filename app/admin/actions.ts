@@ -15,6 +15,8 @@ import {
   resetFamilyLogin,
   resolveModuleRequest,
   setCustomModuleAssignment,
+  updateCustomModule,
+  type CustomModuleUpdateInput,
   type NewCustomModuleInput,
 } from "../../db/admin-queries";
 import {
@@ -141,6 +143,15 @@ export async function adminCreateCustomModuleAction(input: NewCustomModuleInput)
   const created = await createCustomModule(input);
   revalidatePath("/admin");
   return created;
+}
+
+export async function adminUpdateCustomModuleAction(
+  moduleId: string,
+  input: CustomModuleUpdateInput
+) {
+  await requireAdmin();
+  await updateCustomModule(moduleId, input);
+  revalidatePath("/admin");
 }
 
 export async function adminDeleteCustomModuleAction(moduleId: string) {

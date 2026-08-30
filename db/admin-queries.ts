@@ -254,6 +254,30 @@ export async function createCustomModule(
   };
 }
 
+export type CustomModuleUpdateInput = {
+  name: string;
+  description?: string;
+  icon?: string;
+  colour?: string;
+};
+
+/** Edits an existing custom module's display fields (name/description/icon/colour). */
+export async function updateCustomModule(
+  moduleId: string,
+  input: CustomModuleUpdateInput
+): Promise<void> {
+  const db = getDb();
+  await db
+    .update(modules)
+    .set({
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      icon: input.icon?.trim() || null,
+      colour: input.colour?.trim() || null,
+    })
+    .where(and(eq(modules.id, moduleId), eq(modules.isCustom, true)));
+}
+
 /** Deleting a custom module cascades to remove any family_modules assignment rows. */
 export async function deleteCustomModule(moduleId: string): Promise<void> {
   const db = getDb();
