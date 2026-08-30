@@ -1083,18 +1083,26 @@ input, textarea, select {
   align-items: flex-end;
   justify-content: center;
   animation: fadeIn 0.2s ease;
+  overscroll-behavior: contain;
 }
 
 .add-sheet-panel {
   width: 100%;
   max-width: 440px;
-  max-height: 92vh;
+  max-height: 90vh;
+  max-height: 90dvh;
   overflow-y: auto;
   background: var(--surface);
-  border-radius: 34px 34px 0 0;
-  padding: 16px 22px 34px;
+  border-radius: 32px 32px 0 0;
+  padding: 14px 20px calc(24px + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.25);
-  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: slideUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-overflow-scrolling: touch;
+}
+
+.add-sheet-panel.is-editing-mode {
+  max-height: 85vh;
+  max-height: 85dvh;
 }
 
 /* On wider (desktop/tablet) viewports, sheets feel more at home as a
@@ -1108,6 +1116,7 @@ input, textarea, select {
   .add-sheet-panel {
     border-radius: 28px;
     max-height: 85vh;
+    max-height: 85dvh;
     box-shadow: 0 24px 60px rgba(15, 10, 36, 0.35);
     animation: popIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   }
@@ -1137,20 +1146,83 @@ input, textarea, select {
   height: 5px;
   border-radius: 10px;
   background: var(--line);
-  margin: 0 auto 14px;
+  margin: 0 auto 12px;
 }
 
 .sheet-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 16px;
+  gap: 10px;
+}
+
+.sheet-header-left {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
 }
 
 .sheet-title {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 700;
   color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sheet-header-save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border-radius: 18px;
+  background: var(--purple);
+  color: #FFFFFF;
+  font-size: 13.5px;
+  font-weight: 700;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.sheet-header-save-btn:hover {
+  background: var(--purple-deep);
+}
+
+.sheet-header-save-btn:active {
+  transform: scale(0.95);
+}
+
+.sheet-header-save-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sheet-header-delete-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #B0295A;
+  background: var(--pink-soft);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.sheet-header-delete-btn:hover {
+  background: #FAD1DE;
+}
+
+.sheet-header-delete-btn:active {
+  transform: scale(0.92);
 }
 
 .sheet-close-btn {
@@ -1161,12 +1233,84 @@ input, textarea, select {
   place-items: center;
   color: var(--muted);
   background: var(--purple-soft);
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.sheet-close-btn:hover {
+  background: var(--line);
+}
+
+.sheet-close-btn:active {
+  transform: scale(0.92);
 }
 
 .add-sheet-form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
+}
+
+/* Note & Task Type Swatches when Editing */
+.board-type-swatches-row {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.board-type-swatch-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+
+.board-type-swatch-btn.swatch-yellow { background: #FFF4D2; color: #8A6500; }
+.board-type-swatch-btn.swatch-mint { background: #E6FAF4; color: #0C6B58; }
+.board-type-swatch-btn.swatch-pink { background: #FFF0F5; color: #9E1F52; }
+.board-type-swatch-btn.swatch-blue { background: #EBF5FF; color: #1D5499; }
+
+.board-type-swatch-btn .swatch-badge {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.board-type-swatch-btn .swatch-label {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.board-type-swatch-btn.selected {
+  border-color: currentColor;
+  transform: scale(1.04);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.sheet-primary-textarea {
+  width: 100%;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 13px 15px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  font-family: inherit;
+  resize: none;
+  min-height: 80px;
+  line-height: 1.45;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.sheet-primary-textarea:focus {
+  border-color: var(--purple);
+  background: var(--surface);
+  outline: none;
 }
 
 /* Category Squircles Bar */

@@ -1,7 +1,19 @@
 "use client";
 
-import React, { useMemo, useRef, useState } from "react";
-import { X, Calendar, Clock, MapPin, Bell, Trash2, CalendarPlus, Camera, Loader2, FileText } from "lucide-react";
+import React, { useMemo, useRef, useState, useEffect } from "react";
+import {
+  X,
+  Calendar,
+  Clock,
+  MapPin,
+  Bell,
+  Trash2,
+  CalendarPlus,
+  Camera,
+  Loader2,
+  FileText,
+  Check,
+} from "lucide-react";
 import type { Event, BoardItem, FamilyMember, GroundControlModule } from "../../src/core/models";
 import type { CustomService } from "../../db/custom-services-queries";
 import { moduleRegistry } from "../../src/core/module-registry";
@@ -35,6 +47,13 @@ function splitLocalDateTime(iso: string) {
   return { date: toISODate(d), time };
 }
 
+const BOARD_TYPE_SWATCHES = [
+  { type: "note", label: "Note", badge: "📌", color: "#FFF4D2", bgClass: "swatch-yellow" },
+  { type: "task", label: "Task", badge: "✓", color: "#E6FAF4", bgClass: "swatch-mint" },
+  { type: "reminder", label: "Reminder", badge: "🔔", color: "#FFF0F5", bgClass: "swatch-pink" },
+  { type: "countdown", label: "Countdown", badge: "🗓️", color: "#EBF5FF", bgClass: "swatch-blue" },
+] as const;
+
 export function AddModal({
   isOpen,
   onClose,
@@ -63,14 +82,23 @@ export function AddModal({
       ? "Edit task"
       : editingBoardItem?.type === "reminder"
       ? "Edit reminder"
+      : editingBoardItem?.type === "countdown"
+      ? "Edit countdown"
       : "Edit note";
 
-  const [categoryType, setCategoryType] = useState<"event" | "task" | "note" | "reminder">(
+  const [categoryType, setCategoryType] = useState<"event" | "task" | "note" | "reminder" | "countdown">(
     editingBoardItem
-      ? (editingBoardItem.type as "task" | "note" | "reminder") ?? "note"
+      ? (editingBoardItem.type as "task" | "note" | "reminder" | "countdown") ?? "note"
       : "event"
   );
   const [text, setText] = useState(editingEvent?.title ?? editingBoardItem?.text ?? "");
+  const [subtitle, setSubtitle] = useState(editingBoardItem?.subtitle ?? "");
+  const [selectedColor, setSelectedColor] = useState<string>(
+    editingBoardItem?.color ?? (editingBoardItem?.type === "task" ? "#E6FAF4" : "#FFF4D2")
+  );
+  const [selectedBadge, setSelectedBadge] = useState<string>(
+    editingBoardItem?.badge ?? (editingBoardItem?.type === "task" ? "✓" : "📌")
+  );
   const [location, setLocation] = useState(editingEvent?.location ?? "Belvedere");
   const [date, setDate] = useState(() => editingStart?.date ?? toISODate(new Date()));
   const [time, setTime] = useState(() => editingStart?.time ?? "17:00");
@@ -90,6 +118,24 @@ export function AddModal({
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfCandidates, setPdfCandidates] = useState<PdfCandidate[]>([]);
   const pdfInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
+
+  // Smoothly focus input on mount without jarring slide-up animation
+  useEffect(() => {
+    if (isOpen) {
+      const timer = setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          // Move cursor to end of text
+          if ("setSelectionRange" in inputRef.current && typeof text === "string") {
+            const len = text.length;
+            inputRef.current.setSelectionRange(len, len);
+          }
+        }
+      }, 180);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   const availableCategories = useMemo(
     () =>
@@ -113,6 +159,12 @@ export function AddModal({
     } else {
       setSelectedPersonIds([...selectedPersonIds, id]);
     }
+  };
+
+  const handleSelectBoardType = (swatch: (typeof BOARD_TYPE_SWATCHES)[number]) => {
+    setCategoryType(swatch.type);
+    setSelectedColor(swatch.color);
+    setSelectedBadge(swatch.badge);
   };
 
   const handleScanPhoto = async (file: File) => {
@@ -173,8 +225,8 @@ export function AddModal({
     setPdfCandidates([]);
   };
 
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!text.trim()) return;
 
     if (isEditingEvent && editingEvent) {
@@ -199,7 +251,11 @@ export function AddModal({
       const updatedItem: BoardItem = {
         ...editingBoardItem,
         text: text.trim(),
+        subtitle: subtitle.trim() || undefined,
         type: categoryType === "event" ? editingBoardItem.type : categoryType,
+        color: selectedColor,
+        badge: selectedBadge,
+        pinned: categoryType === "note" ? true : editingBoardItem.pinned,
         personIds: selectedPersonIds,
         customServiceId: customServiceId || undefined,
       };
@@ -230,18 +286,20 @@ export function AddModal({
       const newBoard: BoardItem = {
         id: `b-user-${Date.now()}`,
         text: text.trim(),
+        subtitle: subtitle.trim() || undefined,
         type: categoryType,
         personIds: selectedPersonIds,
         createdAt: new Date().toISOString(),
         pinned: categoryType === "note",
-        badge: categoryType === "task" ? "✓" : categoryType === "reminder" ? "🔔" : "📌",
-        color: categoryType === "task" ? "#E6FAF4" : categoryType === "note" ? "#FFF4D2" : "#FFF0F5",
+        badge: selectedBadge || (categoryType === "task" ? "✓" : categoryType === "reminder" ? "🔔" : "📌"),
+        color: selectedColor || (categoryType === "task" ? "#E6FAF4" : categoryType === "note" ? "#FFF4D2" : "#FFF0F5"),
         customServiceId: customServiceId || undefined,
       };
       onSaveBoardItem(newBoard);
     }
 
     setText("");
+    setSubtitle("");
     setCustomServiceId("");
     onClose();
   };
@@ -256,31 +314,65 @@ export function AddModal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="add-sheet-panel">
+      <div className={`add-sheet-panel ${isEditing ? "is-editing-mode" : ""}`}>
         {/* Drag handle */}
         <div className="sheet-pill-handle" />
 
-        {/* Header */}
+        {/* Header with sticky/visible actions */}
         <div className="sheet-header">
-          <h2 id="add-modal-title" className="sheet-title">
-            {isEditingEvent
-              ? isReadOnly
-                ? "Event details"
-                : "Edit event"
-              : isEditingBoardItem
-              ? isConvertingToEvent
-                ? "Convert to event"
-                : editingBoardItemLabel
-              : "Add"}
-          </h2>
-          <button
-            type="button"
-            className="sheet-close-btn"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X size={20} />
-          </button>
+          <div className="sheet-header-left">
+            <h2 id="add-modal-title" className="sheet-title">
+              {isEditingEvent
+                ? isReadOnly
+                  ? "Event details"
+                  : "Edit event"
+                : isEditingBoardItem
+                ? isConvertingToEvent
+                  ? "Convert to event"
+                  : editingBoardItemLabel
+                : "Add"}
+            </h2>
+          </div>
+
+          <div className="sheet-header-actions">
+            {isEditing && !isReadOnly && (
+              <button
+                type="button"
+                className="sheet-header-delete-btn"
+                onClick={() => {
+                  if (editingEvent) onDeleteEvent?.(editingEvent.id);
+                  if (editingBoardItem) onDeleteBoardItem?.(editingBoardItem.id);
+                  onClose();
+                }}
+                aria-label={isEditingBoardItem ? "Delete note" : "Delete event"}
+                title="Delete"
+              >
+                <Trash2 size={17} />
+              </button>
+            )}
+
+            {!isReadOnly && isEditing && (
+              <button
+                type="button"
+                className="sheet-header-save-btn"
+                onClick={() => handleSave()}
+                disabled={!text.trim()}
+                aria-label="Save changes"
+              >
+                <Check size={16} strokeWidth={2.5} />
+                <span>Save</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              className="sheet-close-btn"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {isReadOnly && (
@@ -290,7 +382,7 @@ export function AddModal({
         )}
 
         <form onSubmit={handleSave} className="add-sheet-form">
-          {/* Category Squircles */}
+          {/* Category Squircles for Creation */}
           {!isEditing && (
             <div className="category-squircles-bar">
               <CategoryBadge
@@ -316,32 +408,81 @@ export function AddModal({
             </div>
           )}
 
-          {/* Primary Input */}
+          {/* Note / Task Type Swatches when Editing a Board Item */}
+          {isEditingBoardItem && !isConvertingToEvent && (
+            <div className="board-type-swatches-row" role="radiogroup" aria-label="Card style">
+              {BOARD_TYPE_SWATCHES.map((swatch) => {
+                const isSelected = categoryType === swatch.type;
+                return (
+                  <button
+                    key={swatch.type}
+                    type="button"
+                    role="radio"
+                    aria-checked={isSelected}
+                    className={`board-type-swatch-btn ${swatch.bgClass} ${isSelected ? "selected" : ""}`}
+                    onClick={() => handleSelectBoardType(swatch)}
+                  >
+                    <span className="swatch-badge">{swatch.badge}</span>
+                    <span className="swatch-label">{swatch.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Primary Text Input / Textarea */}
           <div className="form-field-group">
             <label htmlFor="whats-happening-input" className="sr-only">
-              What&apos;s happening?
+              {categoryType === "event" ? "Event title" : "Note text"}
             </label>
-            <input
-              id="whats-happening-input"
-              type="text"
-              className="sheet-primary-input"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              disabled={isReadOnly}
-              placeholder={
-                categoryType === "event"
-                  ? "e.g., Football training"
-                  : categoryType === "task"
-                  ? "e.g., Bring school form"
-                  : categoryType === "note"
-                  ? "e.g., Finn needs €5 Friday"
-                  : "e.g., Take antibiotics at 9am"
-              }
-              autoFocus
-              required
-            />
+            {categoryType === "event" ? (
+              <input
+                ref={inputRef as React.RefObject<HTMLInputElement>}
+                id="whats-happening-input"
+                type="text"
+                className="sheet-primary-input"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                disabled={isReadOnly}
+                placeholder="e.g., Football training"
+                required
+              />
+            ) : (
+              <textarea
+                ref={inputRef as React.RefObject<HTMLTextAreaElement>}
+                id="whats-happening-input"
+                className="sheet-primary-textarea"
+                rows={3}
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                disabled={isReadOnly}
+                placeholder={
+                  categoryType === "task"
+                    ? "e.g., Bring school form"
+                    : categoryType === "note"
+                    ? "e.g., Finn needs €5 Friday"
+                    : "e.g., Take antibiotics at 9am"
+                }
+                required
+              />
+            )}
           </div>
 
+          {/* Optional Subtitle for notes/reminders */}
+          {isEditingBoardItem && !isConvertingToEvent && (
+            <div className="form-field-group">
+              <input
+                type="text"
+                className="sheet-sub-input"
+                value={subtitle}
+                onChange={(e) => setSubtitle(e.target.value)}
+                placeholder="Add details / subtitle (optional)"
+                aria-label="Subtitle"
+              />
+            </div>
+          )}
+
+          {/* Scan photo & PDF import (creation only) */}
           {!isEditing && (
             <div className="scan-photo-row">
               <input
@@ -432,23 +573,22 @@ export function AddModal({
             </div>
           )}
 
-          {isEditingBoardItem &&
-            !isConvertingToEvent &&
-            (editingBoardItem?.type === "task" || editingBoardItem?.type === "reminder") && (
-              <button
-                type="button"
-                className="convert-to-event-btn"
-                onClick={() => {
-                  setCategoryType("event");
-                  setIsConvertingToEvent(true);
-                }}
-              >
-                <CalendarPlus size={15} />
-                Convert to event
-              </button>
-            )}
+          {/* Convert to event button for board items */}
+          {isEditingBoardItem && !isConvertingToEvent && (
+            <button
+              type="button"
+              className="convert-to-event-btn"
+              onClick={() => {
+                setCategoryType("event");
+                setIsConvertingToEvent(true);
+              }}
+            >
+              <CalendarPlus size={15} />
+              Convert to calendar event
+            </button>
+          )}
 
-          {/* Date & Time if Event / Reminder */}
+          {/* Date & Time if Event */}
           {categoryType === "event" && (
             <div className="form-row-duo">
               <div className="input-with-icon">
@@ -572,7 +712,7 @@ export function AddModal({
             </div>
           </div>
 
-          {/* Add Reminder Toggle */}
+          {/* Add Reminder Toggle (creation only) */}
           {!isEditing && (
             <div className="toggle-row">
               <div className="toggle-copy">
@@ -591,7 +731,7 @@ export function AddModal({
             </div>
           )}
 
-          {/* Action Buttons */}
+          {/* Bottom Action Buttons (for desktop / bottom scroll) */}
           <div className="sheet-actions-row">
             {isEditing && !isReadOnly && (
               <button
