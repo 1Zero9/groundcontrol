@@ -2787,6 +2787,17 @@ input, textarea, select {
   margin-bottom: 8px;
 }
 
+.auth-notice {
+  background: rgba(34, 193, 162, 0.15);
+  border: 1px solid rgba(34, 193, 162, 0.3);
+  color: #7EE8D2;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 14px;
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
 .auth-form {
   display: flex;
   flex-direction: column;

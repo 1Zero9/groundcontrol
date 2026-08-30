@@ -2,32 +2,37 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Mail } from "lucide-react";
 import { getSession } from "../../lib/auth/session";
-import { loginAction } from "../../lib/auth/actions";
+import { requestPasswordResetAction } from "../../lib/auth/actions";
 import { AuthShell, AuthCard } from "../components/auth-shell";
-import { PasswordField } from "../components/password-field";
 
-export default async function LoginPage({
+export default async function ForgotPasswordPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; reset?: string }>;
+  searchParams: Promise<{ error?: string; sent?: string }>;
 }) {
   const session = await getSession();
   if (session) {
     redirect("/");
   }
 
-  const { error, reset } = await searchParams;
+  const { error, sent } = await searchParams;
 
   return (
     <AuthShell>
       <AuthCard>
-        <h1 className="auth-title">Log in</h1>
-        <p className="auth-subtitle">Access your family&apos;s mission control.</p>
+        <h1 className="auth-title">Forgot your password?</h1>
+        <p className="auth-subtitle">
+          Enter your email and we&apos;ll send you a link to reset it.
+        </p>
 
         {error && <p className="auth-error">{error}</p>}
-        {reset && <p className="auth-notice">Your password has been reset. Log in below.</p>}
+        {sent && (
+          <p className="auth-notice">
+            If that email matches an account, we&apos;ve sent a reset link. Check your inbox.
+          </p>
+        )}
 
-        <form action={loginAction} className="auth-form">
+        <form action={requestPasswordResetAction} className="auth-form">
           <label className="auth-field">
             <span>Email</span>
             <div className="auth-input-wrap">
@@ -41,20 +46,13 @@ export default async function LoginPage({
               />
             </div>
           </label>
-          <label className="auth-field" htmlFor="login-password">
-            <span>Password</span>
-            <PasswordField id="login-password" name="password" required autoComplete="current-password" />
-          </label>
-          <p className="auth-switch" style={{ marginTop: -6 }}>
-            <Link href="/forgot-password">Forgot your password?</Link>
-          </p>
           <button type="submit" className="auth-submit-btn">
-            Log in
+            Send reset link
           </button>
         </form>
 
         <p className="auth-switch">
-          New to Ground Control? <Link href="/signup">Create a family</Link>
+          <Link href="/login">Back to log in</Link>
         </p>
       </AuthCard>
     </AuthShell>

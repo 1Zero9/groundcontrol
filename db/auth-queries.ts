@@ -147,3 +147,8 @@ export async function claimFamilyMemberInvite(input: ClaimFamilyMemberInviteInpu
 
   return { user, member };
 }
+
+export async function updateUserPassword(userId: string, passwordHash: string): Promise<void> {
+  const db = getDb();
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
+}

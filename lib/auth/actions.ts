@@ -7,11 +7,15 @@ import {
   claimFamilyMemberInvite,
   createFamilyWithOwner,
   getUserByEmail,
+  getUserById,
+  updateUserPassword,
 } from "../../db/auth-queries";
 import { hashPassword, verifyPassword } from "./password";
 import { clearSessionCookie, getSession, setSessionCookie } from "./session";
 import { createMemberInviteToken, verifyMemberInviteToken } from "./member-invite";
+import { createPasswordResetToken, verifyPasswordResetToken } from "./password-reset";
 import { checkRateLimit, getClientIp, rateLimitMessage, resetRateLimit } from "../rate-limit";
+import { sendEmail } from "../email";
 
 function redirectWithError(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -175,4 +179,102 @@ export async function claimMemberInviteAction(formData: FormData) {
 
   await setSessionCookie({ userId: user.id, familyId: invite.familyId });
   redirect("/");
+}
+
+const requestResetSchema = z.object({
+  email: z.string().trim().toLowerCase().email("Enter a valid email address"),
+});
+
+function getSiteUrl(): string {
+  return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+}
+
+/**
+ * Sends a password-reset link if the email matches an account. Always
+ * redirects to the same "check your email" state whether or not the
+ * account exists, so this can't be used to enumerate registered emails.
+ */
+export async function requestPasswordResetAction(formData: FormData) {
+  const ip = await getClientIp();
+  const ipLimit = await checkRateLimit(`reset-request:ip:${ip}`, {
+    max: 10,
+    windowSeconds: 60 * 60,
+  });
+  if (!ipLimit.allowed) {
+    redirectWithError("/forgot-password", rateLimitMessage(ipLimit));
+  }
+
+  const parsed = requestResetSchema.safeParse({ email: formData.get("email") });
+  if (!parsed.success) {
+    redirectWithError("/forgot-password", parsed.error.issues[0]?.message ?? "Invalid input");
+  }
+
+  const emailLimit = await checkRateLimit(`reset-request:email:${parsed.data.email}`, {
+    max: 5,
+    windowSeconds: 60 * 60,
+  });
+
+  if (emailLimit.allowed) {
+    const user = await getUserByEmail(parsed.data.email);
+    if (user) {
+      const token = createPasswordResetToken(user.id);
+      const link = `${getSiteUrl()}/reset-password?token=${encodeURIComponent(token)}`;
+      await sendEmail({
+        to: parsed.data.email,
+        subject: "Reset your Ground Control password",
+        text: `Reset your password: ${link}\n\nThis link expires in 1 hour. If you didn't request this, you can ignore this email.`,
+        html: `<p>Reset your password by clicking the link below:</p><p><a href="${link}">${link}</a></p><p>This link expires in 1 hour. If you didn't request this, you can ignore this email.</p>`,
+      });
+    }
+  }
+
+  redirect("/forgot-password?sent=1");
+}
+
+const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Missing reset link"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export async function resetPasswordAction(formData: FormData) {
+  const ip = await getClientIp();
+  const limit = await checkRateLimit(`reset-confirm:ip:${ip}`, { max: 10, windowSeconds: 15 * 60 });
+  if (!limit.allowed) {
+    redirectWithError("/forgot-password", rateLimitMessage(limit));
+  }
+
+  const parsed = resetPasswordSchema.safeParse({
+    token: formData.get("token"),
+    password: formData.get("password"),
+  });
+
+  const rawToken = typeof formData.get("token") === "string" ? (formData.get("token") as string) : "";
+
+  if (!parsed.success) {
+    redirectWithError(
+      `/reset-password?token=${encodeURIComponent(rawToken)}`,
+      parsed.error.issues[0]?.message ?? "Invalid input"
+    );
+  }
+
+  const payload = verifyPasswordResetToken(parsed.data.token);
+  if (!payload) {
+    redirectWithError(
+      "/forgot-password",
+      "This reset link is invalid or has expired. Please request a new one."
+    );
+  }
+
+  const user = await getUserById(payload.userId);
+  if (!user) {
+    redirectWithError(
+      "/forgot-password",
+      "This reset link is invalid or has expired. Please request a new one."
+    );
+  }
+
+  const passwordHash = hashPassword(parsed.data.password);
+  await updateUserPassword(user.id, passwordHash);
+
+  redirect("/login?reset=1");
 }
