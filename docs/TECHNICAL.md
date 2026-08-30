@@ -283,8 +283,9 @@ Required environment variables (see `.env.local`, gitignored):
 npm install
 npx vercel env pull .env.local --yes   # pull env vars from the linked Vercel project
 
-npm run db:generate    # generate a new SQL migration from schema.ts changes
-npm run db:push        # push schema directly to the DB (dev-friendly, no migration file needed)
+npm run db:generate    # generate a new SQL migration file from schema.ts changes
+npm run db:migrate     # apply any not-yet-applied migration files to the DB (production-safe)
+npm run db:push        # push schema directly to the DB, no migration file (quick local iteration only)
 npm run db:seed        # seed the module registry + a demo family + demo login
 npm run db:studio      # open Drizzle Studio to browse the DB
 
@@ -305,6 +306,21 @@ password: groundcontrol
 Seeding is idempotent-ish: `SEED_SKIP_DEMO_FAMILY=1 npm run db:seed` seeds
 only the module registry (useful against a real production DB where you
 don't want a fake demo household).
+
+**Recommended schema-change workflow:** run `npm run db:generate` after
+editing `db/schema.ts`, commit the generated `drizzle/*.sql` file, then run
+`npm run db:migrate` to apply it. `db:migrate` tracks what's already been
+applied in a `drizzle.__drizzle_migrations` table, so it's safe to run
+repeatedly and won't re-run old migrations. Reserve `db:push` for quick
+throwaway local prototyping only — it applies schema changes directly with
+no migration file and no applied-migrations record, so it's easy to drift
+out of sync between environments or lose data on a destructive change.
+
+(One-time historical note: this project's schema changes were applied via
+`db:push` up through migration `0008`, so `db/baseline-migrations.ts` was run
+once to mark those 9 already-applied migrations as done in
+`drizzle.__drizzle_migrations` without re-running their SQL. That script
+isn't needed again unless the tracking table is ever reset.)
 
 ---
 
