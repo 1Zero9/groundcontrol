@@ -7,12 +7,14 @@ import {
   createEvent,
   createFamilyMember,
   deleteEvent,
+  hideEvent,
   removeBoardItem,
   removeDemoData,
   removeModuleFeed,
   saveModuleFeed,
   setFamilyModuleEnabled,
   setModuleVisibility,
+  snoozeEvent,
   syncModuleFeed,
   toggleBoardItem,
   touchMemberLastSeen,
@@ -60,6 +62,20 @@ export async function deleteEventAction(id: string) {
   const session = await requireSession();
   await deleteEvent(id, session.familyId);
   revalidatePath("/");
+}
+
+export async function hideEventAction(id: string) {
+  const session = await requireSession();
+  const event = await hideEvent(id, session.familyId);
+  revalidatePath("/");
+  return event;
+}
+
+export async function snoozeEventAction(id: string, snoozeUntil: string) {
+  const session = await requireSession();
+  const event = await snoozeEvent(id, session.familyId, snoozeUntil);
+  revalidatePath("/");
+  return event;
 }
 
 export async function createFamilyMemberAction(input: NewFamilyMemberInput) {

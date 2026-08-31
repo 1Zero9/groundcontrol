@@ -46,6 +46,8 @@ function mapEvent(row: EventRow, moduleKey?: string | null): Event {
     source: row.source ?? undefined,
     sourceId: row.sourceId ?? undefined,
     status: row.status,
+    hiddenAt: row.hiddenAt ? row.hiddenAt.toISOString() : undefined,
+    snoozedUntil: row.snoozedUntil ? row.snoozedUntil.toISOString() : undefined,
     details: (row.details as Record<string, unknown>) ?? undefined,
     isDemo: row.isDemo,
   };
@@ -408,6 +410,42 @@ export async function updateEvent(
 export async function deleteEvent(id: string, familyId: string): Promise<void> {
   const db = getDb();
   await db.delete(events).where(and(eq(events.id, id), eq(events.familyId, familyId)));
+}
+
+/** Swipe "Hide" — dismisses an event from calendar views without deleting it. */
+export async function hideEvent(id: string, familyId: string): Promise<Event> {
+  const db = getDb();
+  const [row] = await db
+    .update(events)
+    .set({ hiddenAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(events.id, id), eq(events.familyId, familyId)))
+    .returning();
+
+  if (!row) {
+    throw new Error(`Event ${id} not found`);
+  }
+
+  return mapEvent(row, getModuleByCategory(row.category)?.key ?? "planner");
+}
+
+/** Swipe "Snooze" — hides an event from calendar views until `snoozeUntil`. */
+export async function snoozeEvent(
+  id: string,
+  familyId: string,
+  snoozeUntil: string
+): Promise<Event> {
+  const db = getDb();
+  const [row] = await db
+    .update(events)
+    .set({ snoozedUntil: new Date(snoozeUntil), updatedAt: new Date() })
+    .where(and(eq(events.id, id), eq(events.familyId, familyId)))
+    .returning();
+
+  if (!row) {
+    throw new Error(`Event ${id} not found`);
+  }
+
+  return mapEvent(row, getModuleByCategory(row.category)?.key ?? "planner");
 }
 
 export type NewBoardItemInput = {

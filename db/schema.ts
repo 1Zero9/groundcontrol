@@ -294,6 +294,12 @@ export const events = pgTable("events", {
   source: text("source"),
   sourceId: text("source_id"),
   status: eventStatusEnum("status").notNull().default("active"),
+  // Dismissed from the family's calendar views (swipe "Hide"); the event
+  // still exists so a synced feed's next update can still touch it.
+  hiddenAt: timestamp("hidden_at", { withTimezone: true }),
+  // Temporarily hidden from calendar views until this time passes (swipe
+  // "Snooze"); reappears on its own once the timestamp is in the past.
+  snoozedUntil: timestamp("snoozed_until", { withTimezone: true }),
   // Module-specific structured payload, validated by the module's zod schema
   // at the application layer (e.g. sports: { opponent, competition, venue }).
   details: jsonb("details").$type<Record<string, unknown>>().default({}),

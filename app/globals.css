@@ -1071,21 +1071,66 @@ input, textarea, select {
   gap: 10px;
 }
 
+.timeline-event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.timeline-card-swipe-wrap {
+  position: relative;
+}
+
+.timeline-card-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 144px;
+  display: flex;
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.timeline-action-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: none;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.snooze-action-btn {
+  background: var(--amber);
+}
+
+.hide-action-btn {
+  background: var(--pink);
+}
+
 .timeline-event-card {
+  position: relative;
+  z-index: 2;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 18px;
   padding: 14px 16px;
+  min-height: 72px;
   display: flex;
   align-items: center;
   gap: 12px;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: all 0.2s ease;
+  touch-action: pan-y;
 }
 
 .timeline-event-card:hover {
-  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
@@ -1123,6 +1168,7 @@ input, textarea, select {
 
 .timeline-info-col {
   flex: 1;
+  min-width: 0;
 }
 
 .event-title-text {
@@ -1130,16 +1176,50 @@ input, textarea, select {
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .event-location-text {
   font-size: 12px;
   font-weight: 400;
   color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .category-emoji-badge {
   font-size: 20px;
+}
+
+.assignee-avatar-stack {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.assignee-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  border: 2px solid var(--surface);
+  margin-left: -8px;
+}
+
+.assignee-avatar:first-child {
+  margin-left: 0;
+}
+
+.assignee-avatar-more {
+  background: var(--muted);
 }
 
 /* ==========================================================================

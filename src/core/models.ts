@@ -60,6 +60,10 @@ export type Event = {
   source?: string;
   sourceId?: string;
   status?: "active" | "cancelled" | "completed";
+  /** ISO timestamp if this event has been swiped "hidden" from calendar views. */
+  hiddenAt?: string;
+  /** ISO timestamp until which this event is swiped "snoozed" from calendar views. */
+  snoozedUntil?: string;
   /** Module-specific structured payload (e.g. sports opponent, school term). */
   details?: Record<string, unknown>;
   /** True for starter/onboarding content auto-created for a new family. */

@@ -39,6 +39,7 @@ import {
   deleteCustomServiceAction,
   deleteEventAction,
   discoverCalendarFeedsAction,
+  hideEventAction,
   removeBoardItemAction,
   removeDemoDataAction,
   removeModuleFeedAction,
@@ -48,6 +49,7 @@ import {
   setCustomServicePersonIdsAction,
   setFamilyModuleEnabledAction,
   setModuleVisibilityAction,
+  snoozeEventAction,
   syncCustomServiceFeedAction,
   syncModuleFeedAction,
   toggleBoardItemAction,
@@ -207,6 +209,30 @@ export function GroundControlApp({
       await deleteEventAction(id);
     } catch (err) {
       console.error("Failed to delete event", err);
+      setEvents(previous);
+    }
+  };
+
+  const handleHideEvent = async (id: string) => {
+    const previous = events;
+    const hiddenAt = new Date().toISOString();
+    setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, hiddenAt } : e)));
+    try {
+      await hideEventAction(id);
+    } catch (err) {
+      console.error("Failed to hide event", err);
+      setEvents(previous);
+    }
+  };
+
+  const handleSnoozeEvent = async (id: string) => {
+    const previous = events;
+    const snoozedUntil = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
+    setEvents((prev) => prev.map((e) => (e.id === id ? { ...e, snoozedUntil } : e)));
+    try {
+      await snoozeEventAction(id, snoozedUntil);
+    } catch (err) {
+      console.error("Failed to snooze event", err);
       setEvents(previous);
     }
   };
@@ -574,6 +600,8 @@ export function GroundControlApp({
                     setEditingEvent(evt);
                     setIsAddOpen(true);
                   }}
+                  onHideEvent={handleHideEvent}
+                  onSnoozeEvent={handleSnoozeEvent}
                 />
               )}
 
