@@ -9,12 +9,14 @@ import { useNow } from "../../src/core/use-now";
 import { formatHeroDate, findNextEvent } from "../../src/core/date-utils";
 
 const FALLBACK_NOW = new Date(2026, 7, 26, 17, 0, 0);
+const MAX_TODAY_ITEMS = 3;
 
 interface TodayViewProps {
   currentUser: FamilyMember;
   events: Event[];
   board: BoardItem[];
   onNavigateToWeek: () => void;
+  onNavigateToRemember?: () => void;
   onOpenAdd: () => void;
   onToggleTask?: (id: string) => void;
   onEditItem?: (item: BoardItem) => void;
@@ -25,6 +27,7 @@ export function TodayView({
   events,
   board,
   onNavigateToWeek,
+  onNavigateToRemember,
   onToggleTask,
   onEditItem,
 }: TodayViewProps) {
@@ -36,19 +39,17 @@ export function TodayView({
   const userEvents = events.filter((e) => e.personIds.includes(currentUser.id));
   const nextEvent = findNextEvent(userEvents.length > 0 ? userEvents : events, effectiveNow);
 
-  // Notes and tasks for current user
-  const stickyNote = board.find((b) => b.id === "b-money" || b.pinned || b.type === "note") || board[0];
-  const primaryTask = board.find((b) => b.id === "b-form" || b.type === "task") || board[1];
+  // Pinned/first note for the tilted sticky note.
+  const notes = board.filter((b) => b.type === "note" || !b.type);
+  const stickyNote = notes.find((b) => b.pinned) || notes[0];
 
-  const [taskDone, setTaskDone] = useState(primaryTask?.completed || false);
+  // A short, actionable summary of outstanding tasks/reminders — the rest
+  // live on the "Remember" screen, linked below.
+  const actionable = board.filter((b) => b.type === "task" || b.type === "reminder");
+  const outstanding = actionable.filter((b) => !b.completed);
+  const todayItems = (outstanding.length > 0 ? outstanding : actionable).slice(0, MAX_TODAY_ITEMS);
+
   const [isRocking, setIsRocking] = useState(false);
-
-  const handleTaskClick = () => {
-    setTaskDone(!taskDone);
-    if (primaryTask && onToggleTask) {
-      onToggleTask(primaryTask.id);
-    }
-  };
 
   const handleNoteRock = () => {
     setIsRocking(true);
@@ -95,8 +96,8 @@ export function TodayView({
                 </h3>
                 <p className="up-next-meta">
                   {nextEvent.start ? formatDayLabel(nextEvent.start, effectiveNow) : "Today"} ·{" "}
-                  {nextEvent.start ? formatTime(nextEvent.start) : "17:00"} ·{" "}
-                  {nextEvent.location || "Belvedere"}
+                  {nextEvent.start ? formatTime(nextEvent.start) : "17:00"}
+                  {nextEvent.location ? ` · ${nextEvent.location}` : ""}
                 </p>
               </div>
               <div className="up-next-action">
@@ -126,9 +127,21 @@ export function TodayView({
         </button>
       </section>
 
-      {/* 4. "FOR YOU" Section with Quirky Tilted Sticky Note & Task Card */}
+      {/* 4. "FOR YOU" Section with Quirky Tilted Sticky Note & Task List */}
       <section className="for-you-section">
-        <h2 className="for-you-heading">FOR YOU</h2>
+        <div className="for-you-header-row">
+          <h2 className="for-you-heading">FOR YOU</h2>
+          {onNavigateToRemember && (
+            <button
+              type="button"
+              className="for-you-see-all-btn"
+              onClick={onNavigateToRemember}
+            >
+              See all
+              <ChevronRight size={14} />
+            </button>
+          )}
+        </div>
 
         {/* Quirky Yellow Tilted Sticky Note with 3D Purple Pushpin & Rocking Motion */}
         {stickyNote && (
@@ -176,48 +189,67 @@ export function TodayView({
           </div>
         )}
 
-        {/* Mint Task Card with Checkmark micro-animation */}
-        {primaryTask && (
-          <div
-            className={`task-row-card interactive-card ${taskDone ? "task-completed" : ""}`}
-            role="button"
-            tabIndex={0}
-            onClick={handleTaskClick}
-            onKeyDown={(e) => e.key === "Enter" && handleTaskClick()}
-            aria-label={`Task: ${primaryTask.text}`}
-          >
-            <div className="task-left">
-              <button
-                type="button"
-                className={`task-checkbox-circle ${taskDone ? "checked pop-anim" : ""}`}
-                aria-label={taskDone ? "Mark incomplete" : "Mark complete"}
-              >
-                <Check size={16} strokeWidth={3} className="task-check-icon" />
-              </button>
-              <span className="task-title-text">{primaryTask.text}</span>
-            </div>
-
-            <div className="task-right">
-              <span
-                className="member-tag-circle mint-theme"
-                style={{ backgroundColor: "#22C1A2" }}
-              >
-                {currentUser.shortName || currentUser.name.charAt(0)}
-              </span>
-              {onEditItem && (
-                <button
-                  type="button"
-                  className="task-edit-mini-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEditItem(primaryTask);
+        {/* Compact list of outstanding tasks & reminders — tap to complete,
+            pencil to edit. Full history lives on the Remember screen. */}
+        {todayItems.length > 0 && (
+          <div className="today-task-list">
+            {todayItems.map((item) => {
+              const isTask = item.type === "task";
+              const done = !!item.completed;
+              return (
+                <div
+                  key={item.id}
+                  className={`task-row-card interactive-card ${done ? "task-completed" : ""}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => {
+                    if (isTask) onToggleTask?.(item.id);
+                    else onEditItem?.(item);
                   }}
-                  aria-label="Edit task"
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter") return;
+                    if (isTask) onToggleTask?.(item.id);
+                    else onEditItem?.(item);
+                  }}
+                  aria-label={`${isTask ? "Task" : "Reminder"}: ${item.text}`}
                 >
-                  <Pencil size={14} />
-                </button>
-              )}
-            </div>
+                  <div className="task-left">
+                    {isTask ? (
+                      <span className={`task-checkbox-circle ${done ? "checked" : ""}`}>
+                        <Check size={16} strokeWidth={3} className="task-check-icon" />
+                      </span>
+                    ) : (
+                      <span className="task-checkbox-circle reminder-marker" aria-hidden="true">
+                        🔔
+                      </span>
+                    )}
+                    <span className="task-title-text">{item.text}</span>
+                  </div>
+
+                  <div className="task-right">
+                    <span
+                      className="member-tag-circle mint-theme"
+                      style={{ backgroundColor: isTask ? "#22C1A2" : "#FF6FA5" }}
+                    >
+                      {currentUser.shortName || currentUser.name.charAt(0)}
+                    </span>
+                    {onEditItem && (
+                      <button
+                        type="button"
+                        className="task-edit-mini-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditItem(item);
+                        }}
+                        aria-label={`Edit ${isTask ? "task" : "reminder"}`}
+                      >
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </section>

@@ -558,6 +558,32 @@ input, textarea, select {
   margin-left: 2px;
 }
 
+.for-you-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.for-you-see-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--purple);
+  padding: 4px 2px;
+}
+
+.for-you-see-all-btn:hover {
+  opacity: 0.75;
+}
+
+.today-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 /* Pushpin 3D */
 .pin-container {
   display: flex;
@@ -752,6 +778,12 @@ input, textarea, select {
 
 .task-completed .task-checkbox-circle {
   background: #137A63;
+}
+
+.task-checkbox-circle.reminder-marker {
+  background: #FF6FA5;
+  font-size: 13px;
+  box-shadow: 0 3px 8px rgba(255, 111, 165, 0.35);
 }
 
 .task-title-text {
@@ -1519,11 +1551,11 @@ input, textarea, select {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 10px 5px 5px;
+  padding: 7px 14px;
   border-radius: 999px;
   background: var(--paper);
   border: 1px solid var(--line);
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--muted);
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
@@ -1540,17 +1572,18 @@ input, textarea, select {
   display: flex;
   align-items: center;
   gap: 5px;
+  padding: 3px;
 }
 
 .mini-avatar-circle {
-  width: 20px;
-  height: 20px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: grid;
   place-items: center;
   overflow: hidden;
   color: #FFFFFF;
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 700;
   flex-shrink: 0;
   opacity: 0.45;
@@ -1559,7 +1592,7 @@ input, textarea, select {
 
 .mini-avatar-pick-btn.selected .mini-avatar-circle {
   opacity: 1;
-  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--purple);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 3px var(--purple);
 }
 
 .toggle-row {

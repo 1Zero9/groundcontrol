@@ -554,6 +554,7 @@ export function GroundControlApp({
                   events={visibleEvents}
                   board={visibleBoard}
                   onNavigateToWeek={() => setActiveTab("week")}
+                  onNavigateToRemember={() => setActiveTab("remember")}
                   onOpenAdd={() => setIsAddOpen(true)}
                   onToggleTask={handleToggleBoardItem}
                   onEditItem={(item) => {

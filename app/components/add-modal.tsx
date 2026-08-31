@@ -6,7 +6,6 @@ import {
   Calendar,
   Clock,
   MapPin,
-  Bell,
   Trash2,
   CalendarPlus,
   Camera,
@@ -106,7 +105,6 @@ export function AddModal({
   const [selectedPersonIds, setSelectedPersonIds] = useState<string[]>(
     editingEvent?.personIds ?? editingBoardItem?.personIds ?? [currentUser.id]
   );
-  const [hasReminder, setHasReminder] = useState(true);
   const [customServiceId, setCustomServiceId] = useState<string>(
     editingEvent?.customServiceId ?? editingBoardItem?.customServiceId ?? ""
   );
@@ -495,7 +493,6 @@ export function AddModal({
                 ref={photoInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 className="scan-photo-input"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -517,7 +514,7 @@ export function AddModal({
                 ) : (
                   <>
                     <Camera size={15} />
-                    Scan text from a photo
+                    Scan or upload a photo
                   </>
                 )}
               </button>
@@ -717,25 +714,6 @@ export function AddModal({
                 })}
             </div>
           </div>
-
-          {/* Add Reminder Toggle (creation only) */}
-          {!isEditing && (
-            <div className="toggle-row">
-              <div className="toggle-copy">
-                <Bell size={18} className="toggle-icon" />
-                <span>Add reminder</span>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={hasReminder}
-                className={`toggle-switch-pill ${hasReminder ? "on" : "off"}`}
-                onClick={() => setHasReminder(!hasReminder)}
-              >
-                <span className="toggle-switch-thumb" />
-              </button>
-            </div>
-          )}
 
           {/* Bottom Action Buttons (for desktop / bottom scroll) */}
           <div className="sheet-actions-row">
