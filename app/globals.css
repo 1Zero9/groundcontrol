@@ -1856,6 +1856,49 @@ input, textarea, select {
   cursor: default;
 }
 
+.pdf-url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 14px;
+  background: var(--amber-soft);
+}
+
+.pdf-url-icon {
+  flex-shrink: 0;
+  color: var(--ink-secondary);
+}
+
+.pdf-url-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--ink);
+  padding: 6px 0;
+}
+
+.pdf-url-input:focus {
+  outline: none;
+}
+
+.pdf-url-btn {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: var(--amber);
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.pdf-url-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
 .pdf-candidate-list {
   display: flex;
   flex-direction: column;

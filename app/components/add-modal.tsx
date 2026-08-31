@@ -11,6 +11,7 @@ import {
   Camera,
   Loader2,
   FileText,
+  Link2,
   Check,
 } from "lucide-react";
 import type { Event, BoardItem, FamilyMember, GroundControlModule } from "../../src/core/models";
@@ -19,7 +20,8 @@ import { moduleRegistry } from "../../src/core/module-registry";
 import { CategoryBadge } from "./cosmic-illustrations";
 import { MemberAvatarContent } from "./member-avatar";
 import { toISODate } from "../../src/core/date-utils";
-import { extractPdfCandidates, type PdfCandidate } from "../../src/core/pdf-extract";
+import { extractPdfCandidates, extractPdfCandidatesFromBuffer, type PdfCandidate } from "../../src/core/pdf-extract";
+import { importPdfFromUrlAction } from "../actions";
 
 interface AddModalProps {
   isOpen: boolean;
@@ -115,6 +117,7 @@ export function AddModal({
   const [isParsingPdf, setIsParsingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfCandidates, setPdfCandidates] = useState<PdfCandidate[]>([]);
+  const [pdfUrl, setPdfUrl] = useState("");
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
@@ -219,6 +222,30 @@ export function AddModal({
     } catch (err) {
       console.error("PDF import failed", err);
       setPdfError("Couldn't read that PDF. Please try again.");
+    } finally {
+      setIsParsingPdf(false);
+    }
+  };
+
+  const handleImportPdfFromUrl = async () => {
+    if (!pdfUrl.trim() || isParsingPdf) return;
+    setIsParsingPdf(true);
+    setPdfError(null);
+    setPdfCandidates([]);
+    try {
+      const base64 = await importPdfFromUrlAction(pdfUrl.trim());
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const candidates = await extractPdfCandidatesFromBuffer(bytes.buffer);
+      if (candidates.length > 0) {
+        setPdfCandidates(candidates);
+      } else {
+        setPdfError("Couldn't find any dated events in that PDF.");
+      }
+    } catch (err) {
+      console.error("PDF link import failed", err);
+      setPdfError(err instanceof Error ? err.message : "Couldn't read that PDF link. Please try again.");
     } finally {
       setIsParsingPdf(false);
     }
@@ -568,6 +595,33 @@ export function AddModal({
                   </>
                 )}
               </button>
+
+              <div className="pdf-url-row">
+                <Link2 size={14} className="pdf-url-icon" />
+                <input
+                  type="url"
+                  className="pdf-url-input"
+                  placeholder="Or paste a link to a PDF calendar…"
+                  value={pdfUrl}
+                  onChange={(e) => setPdfUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleImportPdfFromUrl();
+                    }
+                  }}
+                  disabled={isParsingPdf}
+                />
+                <button
+                  type="button"
+                  className="pdf-url-btn"
+                  onClick={handleImportPdfFromUrl}
+                  disabled={isParsingPdf || !pdfUrl.trim()}
+                >
+                  {isParsingPdf ? <Loader2 size={14} className="spin" /> : "Fetch"}
+                </button>
+              </div>
+
               {pdfError && <p className="scan-photo-error">{pdfError}</p>}
               {pdfCandidates.length > 0 && (
                 <div className="pdf-candidate-list">

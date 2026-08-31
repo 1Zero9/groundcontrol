@@ -102,16 +102,17 @@ function parseTimeFromLine(line: string): string | undefined {
 }
 
 /**
- * Extracts text from a PDF file entirely client-side (via pdfjs-dist, no
+ * Extracts text from PDF bytes entirely client-side (via pdfjs-dist, no
  * server upload / paid API) and returns candidate lines that look like they
  * might describe a dated event, so the user can quickly turn them into
- * calendar events.
+ * calendar events. Shared by both the "upload a file" and "paste a link"
+ * import paths — a link's bytes are fetched server-side (to dodge CORS) and
+ * handed to this same parser once they reach the browser.
  */
-export async function extractPdfCandidates(file: File): Promise<PdfCandidate[]> {
+export async function extractPdfCandidatesFromBuffer(buffer: ArrayBuffer): Promise<PdfCandidate[]> {
   const pdfjsLib = await import("pdfjs-dist");
   pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
-  const buffer = await file.arrayBuffer();
   const doc = await pdfjsLib.getDocument({ data: buffer }).promise;
 
   const lines: string[] = [];
@@ -155,4 +156,9 @@ export async function extractPdfCandidates(file: File): Promise<PdfCandidate[]> 
   }
 
   return candidates;
+}
+
+/** Extracts candidates from a locally-picked PDF file (the "upload" path). */
+export async function extractPdfCandidates(file: File): Promise<PdfCandidate[]> {
+  return extractPdfCandidatesFromBuffer(await file.arrayBuffer());
 }

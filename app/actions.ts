@@ -212,6 +212,42 @@ export async function discoverCalendarFeedsAction(pageUrl: string) {
   return discoverCalendarFeeds(pageUrl);
 }
 
+const MAX_REMOTE_PDF_BYTES = 20 * 1024 * 1024;
+
+/**
+ * Downloads a PDF from a public link server-side (so the browser never has
+ * to make a cross-origin request to some school/club's website) and hands
+ * the raw bytes back to the client as base64, where they're parsed with the
+ * same pdfjs-dist logic used for locally-uploaded PDFs.
+ */
+export async function importPdfFromUrlAction(url: string): Promise<string> {
+  await requireSession();
+
+  const trimmed = url.trim();
+  if (!/^https?:\/\//i.test(trimmed)) {
+    throw new Error("Please enter a valid http(s) link to a PDF.");
+  }
+
+  const res = await fetch(trimmed, { redirect: "follow" });
+  if (!res.ok) {
+    throw new Error(`Couldn't download that PDF (server said ${res.status}).`);
+  }
+
+  const buffer = Buffer.from(await res.arrayBuffer());
+  if (buffer.byteLength > MAX_REMOTE_PDF_BYTES) {
+    throw new Error("That PDF is too large to import (max 20MB).");
+  }
+
+  const contentType = res.headers.get("content-type") ?? "";
+  const looksLikePdf =
+    contentType.toLowerCase().includes("pdf") || buffer.subarray(0, 5).toString("latin1") === "%PDF-";
+  if (!looksLikePdf) {
+    throw new Error("That link doesn't look like a PDF file.");
+  }
+
+  return buffer.toString("base64");
+}
+
 export async function setCustomServicePersonIdsAction(
   id: string,
   familyId: string,
