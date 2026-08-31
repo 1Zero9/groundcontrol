@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { Event, FamilyMember } from "../../src/core/models";
 import { EventIcon } from "./event-icon";
 import { useNow } from "../../src/core/use-now";
@@ -30,6 +30,7 @@ export function WeekView({
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const [selectedPersonId, setSelectedPersonId] = useState<string>("all");
+  const [mode, setMode] = useState<"day" | "week">("day");
 
   const referenceDate = useMemo(() => {
     const d = new Date(today);
@@ -69,25 +70,49 @@ export function WeekView({
       : first.dateNum + " " + monthFmt(monday) + " - " + last.dateNum + " " + monthFmt(sunday);
   }, [weekDays, referenceDate]);
 
-  // Filter events by person and day
-  const filteredEvents = events.filter((evt) => {
-    const matchesPerson =
-      selectedPersonId === "all"
-        ? true
-        : evt.personIds.includes(selectedPersonId);
-    const matchesDay = evt.start.startsWith(effectiveSelectedDay);
-    return matchesPerson && matchesDay;
-  });
+  const matchesPerson = (evt: Event) =>
+    selectedPersonId === "all" || evt.personIds.includes(selectedPersonId);
 
-  // Fallback: If no events on chosen day, show all events for the week sorted
-  const displayEvents =
-    filteredEvents.length > 0
-      ? filteredEvents
-      : events.filter((evt) =>
-          selectedPersonId === "all"
-            ? true
-            : evt.personIds.includes(selectedPersonId)
-        );
+  const getEventColor = (evt: Event) => {
+    const primaryMember = family.find((m) => evt.personIds.includes(m.id));
+    return evt.accentColor || primaryMember?.colour || "#6C4DFF";
+  };
+
+  // Events for the currently selected day only.
+  const dayEvents = useMemo(
+    () =>
+      events
+        .filter((evt) => matchesPerson(evt) && evt.start.startsWith(effectiveSelectedDay))
+        .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [events, selectedPersonId, effectiveSelectedDay]
+  );
+
+  // All events across the currently viewed week, sorted chronologically.
+  const weekEvents = useMemo(() => {
+    const isoSet = new Set(weekDays.map((d) => d.iso));
+    return events
+      .filter((evt) => matchesPerson(evt) && isoSet.has(evt.start.slice(0, 10)))
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, selectedPersonId, weekDays]);
+
+  const displayEvents = mode === "week" ? weekEvents : dayEvents;
+
+  const dayLabelFor = (evt: Event) =>
+    weekDays.find((d) => d.iso === evt.start.slice(0, 10))?.dayName ?? "";
+
+  // Which days in the current week strip actually have events, and what
+  // color their dot should be (the first matching event's accent color).
+  const dotColorByDay = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const d of weekDays) {
+      const evt = events.find((e) => matchesPerson(e) && e.start.startsWith(d.iso));
+      if (evt) map.set(d.iso, getEventColor(evt));
+    }
+    return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [events, selectedPersonId, weekDays, family]);
 
   return (
     <div className="screen week-mobile-screen">
@@ -96,6 +121,28 @@ export function WeekView({
         <div>
           <h1 className="screen-title">My Week</h1>
           <p className="screen-subtitle">Everyone’s schedule in one orbit</p>
+        </div>
+
+        {/* Day / Week mode toggle */}
+        <div className="view-mode-toggle" role="tablist" aria-label="View mode">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "day"}
+            className={`view-mode-btn ${mode === "day" ? "active" : ""}`}
+            onClick={() => setMode("day")}
+          >
+            Day
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === "week"}
+            className={`view-mode-btn ${mode === "week" ? "active" : ""}`}
+            onClick={() => setMode("week")}
+          >
+            Week
+          </button>
         </div>
 
         {/* Member filter chips */}
@@ -174,12 +221,14 @@ export function WeekView({
                 <div className={`day-num-bubble ${d.isToday && !isSelected ? "is-today" : ""}`}>
                   <span>{d.dateNum}</span>
                 </div>
-                <span
-                  className="day-dot"
-                  style={{
-                    backgroundColor: isSelected ? "#6C4DFF" : d.dotColor,
-                  }}
-                />
+                {dotColorByDay.has(d.iso) && (
+                  <span
+                    className="day-dot"
+                    style={{
+                      backgroundColor: isSelected ? "#6C4DFF" : dotColorByDay.get(d.iso),
+                    }}
+                  />
+                )}
               </button>
             );
           })}
@@ -191,7 +240,7 @@ export function WeekView({
         {displayEvents.length === 0 ? (
           <div className="empty-day-state">
             <span className="empty-icon">🪐</span>
-            <h3>Nothing scheduled for this day</h3>
+            <h3>{mode === "week" ? "Nothing scheduled this week" : "Nothing scheduled for this day"}</h3>
             <p>Enjoy the free time or add a new activity!</p>
             <button
               type="button"
@@ -204,11 +253,7 @@ export function WeekView({
         ) : (
           <div className="timeline-event-list">
             {displayEvents.map((evt) => {
-              const primaryMember = family.find((m) =>
-                evt.personIds.includes(m.id)
-              );
-              const accentColor =
-                evt.accentColor || primaryMember?.colour || "#6C4DFF";
+              const accentColor = getEventColor(evt);
               const timeDisplay = evt.allDay ? "All day" : formatTime(evt.start);
 
               return (
@@ -226,6 +271,9 @@ export function WeekView({
 
                   {/* Time column */}
                   <div className="timeline-time-col">
+                    {mode === "week" && (
+                      <span className="timeline-day-badge">{dayLabelFor(evt)}</span>
+                    )}
                     <span className="event-time-text">{timeDisplay}</span>
                   </div>
 
@@ -250,16 +298,6 @@ export function WeekView({
           </div>
         )}
       </div>
-
-      {/* Floating Action Button (FAB) */}
-      <button
-        type="button"
-        className="floating-add-btn"
-        onClick={onOpenAdd}
-        aria-label="Add new event, task or note"
-      >
-        <Plus size={28} strokeWidth={2.5} />
-      </button>
     </div>
   );
 }

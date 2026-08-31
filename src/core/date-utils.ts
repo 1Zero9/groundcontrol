@@ -2,11 +2,9 @@ export interface WeekDayInfo {
   dayName: string;
   dateNum: string;
   iso: string;
-  dotColor: string;
   isToday: boolean;
 }
 
-const DOT_PALETTE = ["#6C7E90", "#22C1A2", "#6C4DFF", "#22C1A2", "#6C4DFF", "#22C1A2", "#FF5CA8"];
 const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export function toISODate(date: Date): string {
@@ -36,7 +34,6 @@ export function getWeekDays(referenceDate: Date, today: Date = referenceDate): W
       dayName: DAY_NAMES[i],
       dateNum: String(d.getDate()),
       iso,
-      dotColor: DOT_PALETTE[i],
       isToday: iso === todayIso,
     };
   });

@@ -228,18 +228,24 @@ export function AddModal({
     if (!text.trim()) return;
 
     if (isEditingEvent && editingEvent) {
-      const updatedEvent: Event = {
-        ...editingEvent,
-        title: text.trim(),
-        start: `${date}T${time}:00`,
-        end: `${date}T${time}:00`,
-        personIds: selectedPersonIds,
-        category,
-        location: location || "Home",
-        icon: selectedCategoryMeta?.icon ?? editingEvent.icon ?? "🗓️",
-        accentColor: selectedCategoryMeta?.color ?? editingEvent.accentColor ?? "#6C4DFF",
-        customServiceId: customServiceId || undefined,
-      };
+      // Synced calendar-feed events are read-only for feed-owned fields (title,
+      // date/time, location, category), since the next sync would just
+      // overwrite them anyway. We still allow updating who it's for, since
+      // that's local-only metadata the feed has no opinion on.
+      const updatedEvent: Event = isReadOnly
+        ? { ...editingEvent, personIds: selectedPersonIds }
+        : {
+            ...editingEvent,
+            title: text.trim(),
+            start: `${date}T${time}:00`,
+            end: `${date}T${time}:00`,
+            personIds: selectedPersonIds,
+            category,
+            location: location || "Home",
+            icon: selectedCategoryMeta?.icon ?? editingEvent.icon ?? "🗓️",
+            accentColor: selectedCategoryMeta?.color ?? editingEvent.accentColor ?? "#6C4DFF",
+            customServiceId: customServiceId || undefined,
+          };
       onUpdateEvent?.(editingEvent.id, updatedEvent);
       onClose();
       return;
@@ -355,7 +361,7 @@ export function AddModal({
               </button>
             )}
 
-            {!isReadOnly && isEditing && (
+            {isEditing && (
               <button
                 type="button"
                 className="sheet-header-save-btn"
@@ -381,7 +387,7 @@ export function AddModal({
 
         {isReadOnly && (
           <p className="synced-event-notice">
-            This event is synced from a calendar feed, so it can&apos;t be edited here.
+            This event is synced from a calendar feed, so its details update automatically. You can still choose who it&apos;s for below.
           </p>
         )}
 
@@ -694,7 +700,6 @@ export function AddModal({
                       type="button"
                       className={`avatar-pick-btn ${isSelected ? "selected" : ""}`}
                       onClick={() => togglePerson(m.id)}
-                      disabled={isReadOnly}
                     >
                       <span
                         className="avatar-circle-ring"
@@ -732,28 +737,20 @@ export function AddModal({
                 Delete
               </button>
             )}
-            {isReadOnly ? (
-              <button type="button" className="sheet-add-btn" onClick={onClose}>
-                Close
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="sheet-cancel-btn"
-                  onClick={onClose}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="sheet-add-btn"
-                  disabled={!text.trim()}
-                >
-                  {isConvertingToEvent ? "Convert" : isEditing ? "Save" : "Add"}
-                </button>
-              </>
-            )}
+            <button
+              type="button"
+              className="sheet-cancel-btn"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="sheet-add-btn"
+              disabled={!text.trim()}
+            >
+              {isConvertingToEvent ? "Convert" : isEditing ? "Save" : "Add"}
+            </button>
           </div>
         </form>
       </div>
