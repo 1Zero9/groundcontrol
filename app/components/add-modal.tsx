@@ -172,21 +172,30 @@ export function AddModal({
       const { createWorker } = await import("tesseract.js");
       const worker = await createWorker("eng");
       const {
-        data: { text: recognizedText },
+        data: { text: recognizedText, confidence },
       } = await worker.recognize(file);
       await worker.terminate();
 
+      // Tesseract still returns *something* for photos with little or no
+      // real text (logos, faces, scenery) — it's just noise. Drop lines that
+      // are mostly punctuation/symbols and bail out entirely on a low
+      // overall confidence score rather than dumping garbage into the title.
       const cleaned = recognizedText
         .split("\n")
         .map((line) => line.trim())
-        .filter(Boolean)
+        .filter((line) => {
+          if (line.length < 2) return false;
+          const alnum = line.replace(/[^a-zA-Z0-9]/g, "").length;
+          return alnum / line.length >= 0.5;
+        })
         .join(" ")
+        .replace(/\s+/g, " ")
         .trim();
 
-      if (cleaned) {
+      if (cleaned && confidence >= 55) {
         setText((prev) => (prev.trim() ? `${prev.trim()} ${cleaned}` : cleaned));
       } else {
-        setScanError("Couldn't find any readable text in that photo.");
+        setScanError("Couldn't find any readable text in that photo. Try a clearer, well-lit shot of the text.");
       }
     } catch (err) {
       console.error("Photo scan failed", err);
