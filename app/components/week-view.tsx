@@ -442,7 +442,7 @@ export function WeekView({
                     {/* Right Category Icon */}
                     <div className="timeline-icon-col">
                       <span className="category-emoji-badge">
-                        <EventIcon icon={evt.icon} category={evt.category} size={22} />
+                        <EventIcon icon={evt.icon} category={evt.category} size={24} />
                       </span>
                     </div>
                   </div>
