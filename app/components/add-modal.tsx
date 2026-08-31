@@ -117,6 +117,7 @@ export function AddModal({
   const [isParsingPdf, setIsParsingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [pdfCandidates, setPdfCandidates] = useState<PdfCandidate[]>([]);
+  const [selectedCandidateIndices, setSelectedCandidateIndices] = useState<Set<number>>(new Set());
   const [pdfUrl, setPdfUrl] = useState("");
   const pdfInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
@@ -208,14 +209,20 @@ export function AddModal({
     }
   };
 
+  const applyPdfCandidates = (candidates: PdfCandidate[]) => {
+    setPdfCandidates(candidates);
+    setSelectedCandidateIndices(new Set(candidates.map((_, i) => i)));
+  };
+
   const handleImportPdf = async (file: File) => {
     setIsParsingPdf(true);
     setPdfError(null);
     setPdfCandidates([]);
+    setSelectedCandidateIndices(new Set());
     try {
       const candidates = await extractPdfCandidates(file);
       if (candidates.length > 0) {
-        setPdfCandidates(candidates);
+        applyPdfCandidates(candidates);
       } else {
         setPdfError("Couldn't find any dated events in that PDF.");
       }
@@ -232,6 +239,7 @@ export function AddModal({
     setIsParsingPdf(true);
     setPdfError(null);
     setPdfCandidates([]);
+    setSelectedCandidateIndices(new Set());
     try {
       const base64 = await importPdfFromUrlAction(pdfUrl.trim());
       const binary = atob(base64);
@@ -239,7 +247,7 @@ export function AddModal({
       for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
       const candidates = await extractPdfCandidatesFromBuffer(bytes.buffer);
       if (candidates.length > 0) {
-        setPdfCandidates(candidates);
+        applyPdfCandidates(candidates);
       } else {
         setPdfError("Couldn't find any dated events in that PDF.");
       }
@@ -251,12 +259,53 @@ export function AddModal({
     }
   };
 
-  const applyPdfCandidate = (candidate: PdfCandidate) => {
-    setCategoryType("event");
-    setText(candidate.text);
-    if (candidate.date) setDate(candidate.date);
-    if (candidate.time) setTime(candidate.time);
+  const toggleCandidateSelected = (index: number) => {
+    setSelectedCandidateIndices((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) {
+        next.delete(index);
+      } else {
+        next.add(index);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAllCandidates = () => {
+    setSelectedCandidateIndices((prev) =>
+      prev.size === pdfCandidates.length ? new Set() : new Set(pdfCandidates.map((_, i) => i))
+    );
+  };
+
+  // Bulk-creates every checked PDF candidate as a normal calendar Event in
+  // one go, sharing the category / "who's it for" pickers from the form
+  // above rather than making the user re-open this sheet per entry.
+  const handleAddSelectedCandidates = () => {
+    const selected = pdfCandidates.filter((_, i) => selectedCandidateIndices.has(i));
+    if (selected.length === 0) return;
+
+    selected.forEach((candidate, i) => {
+      const eventDate = candidate.date || date;
+      const eventTime = candidate.time || time;
+      const newEvent: Event = {
+        id: `e-user-${Date.now()}-${i}`,
+        title: candidate.text,
+        start: `${eventDate}T${eventTime}:00`,
+        end: `${eventDate}T${eventTime}:00`,
+        personIds: selectedPersonIds,
+        category,
+        location: location || "Home",
+        icon: selectedCategoryMeta?.icon ?? "🗓️",
+        accentColor: selectedCategoryMeta?.color ?? "#6C4DFF",
+        source: "User",
+        customServiceId: customServiceId || undefined,
+      };
+      onSaveEvent(newEvent);
+    });
+
     setPdfCandidates([]);
+    setSelectedCandidateIndices(new Set());
+    onClose();
   };
 
   const handleSave = (e?: React.FormEvent) => {
@@ -625,21 +674,53 @@ export function AddModal({
               {pdfError && <p className="scan-photo-error">{pdfError}</p>}
               {pdfCandidates.length > 0 && (
                 <div className="pdf-candidate-list">
-                  <p className="pdf-candidate-heading">Pick an event to add:</p>
-                  {pdfCandidates.map((candidate, i) => (
+                  <div className="pdf-candidate-list-header">
+                    <p className="pdf-candidate-heading">
+                      Found {pdfCandidates.length} dated {pdfCandidates.length === 1 ? "entry" : "entries"} — choose which to add
+                    </p>
                     <button
-                      key={i}
                       type="button"
-                      className="pdf-candidate-item"
-                      onClick={() => applyPdfCandidate(candidate)}
+                      className="pdf-candidate-select-all-btn"
+                      onClick={toggleSelectAllCandidates}
                     >
-                      <span className="pdf-candidate-text">{candidate.text}</span>
-                      <span className="pdf-candidate-meta">
-                        {candidate.date}
-                        {candidate.time ? ` · ${candidate.time}` : ""}
-                      </span>
+                      {selectedCandidateIndices.size === pdfCandidates.length ? "Deselect all" : "Select all"}
                     </button>
-                  ))}
+                  </div>
+                  {pdfCandidates.map((candidate, i) => {
+                    const checked = selectedCandidateIndices.has(i);
+                    return (
+                      <label
+                        key={i}
+                        className={`pdf-candidate-item ${checked ? "selected" : ""}`}
+                        aria-label={`${candidate.text}, ${candidate.date ?? ""}${candidate.time ? ` ${candidate.time}` : ""}`}
+                      >
+                        <input
+                          type="checkbox"
+                          className="pdf-candidate-checkbox"
+                          checked={checked}
+                          onChange={() => toggleCandidateSelected(i)}
+                        />
+                        <span className="pdf-candidate-text-col">
+                          <span className="pdf-candidate-text">{candidate.text}</span>
+                          <span className="pdf-candidate-meta">
+                            {candidate.date}
+                            {candidate.time ? ` · ${candidate.time}` : ""}
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                  <p className="pdf-candidate-hint">
+                    Uses the category and &quot;who&apos;s it for&quot; picked below for all of them.
+                  </p>
+                  <button
+                    type="button"
+                    className="pdf-bulk-add-btn"
+                    onClick={handleAddSelectedCandidates}
+                    disabled={selectedCandidateIndices.size === 0}
+                  >
+                    Add {selectedCandidateIndices.size} {selectedCandidateIndices.size === 1 ? "event" : "events"}
+                  </button>
                 </div>
               )}
             </div>
